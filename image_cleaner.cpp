@@ -106,6 +106,135 @@ COLORREF Image::mean(COLORREF*** colour, int x, int y, int num) {
 #endif
 
 #ifndef NO_MEDIAN
+#ifdef BASIC_FAST_MEDIAN_MODE
+COLORREF Image::basic_fast_median(COLORREF*** colour, int x, int y, const int num) {
+	int* redList = static_cast<int*>(malloc(num * sizeof(int)));
+	int* greenList = static_cast<int*>(malloc(num * sizeof(int)));
+	int* blueList = static_cast<int*>(malloc(num * sizeof(int)));
+
+#ifdef CHECK_BAD_ALLOC
+	if (redList == nullptr) {
+		quick_exit(1);
+	}
+	if (greenList == nullptr) {
+		quick_exit(1);
+	}
+	if (blueList == nullptr) {
+		quick_exit(1);
+	}
+#endif
+
+	for (int i = 0; i < num; i++) {
+		redList[i] = GetRValue(colour[i][y][x]);
+		greenList[i] = GetGValue(colour[i][y][x]);
+		blueList[i] = GetBValue(colour[i][y][x]);
+	}
+
+	int redMax = redList[0], redMin = redList[0];
+	int greenMax = greenList[0], greenMin = greenList[0];
+	int blueMax = blueList[0], blueMin = blueList[0];
+	for (int i = 1; i < num; i++) {
+		redMax = max(redMax, redList[i]);
+		greenMax = max(greenMax, greenList[i]);
+		blueMax = max(blueMax, blueList[i]);
+
+		redMin = min(redMin, redList[i]);
+		greenMin = min(greenMin, greenList[i]);
+		blueMin = min(blueMin, blueList[i]);
+	}
+
+	int redVal, greenVal, blueVal;
+
+	if (redMax <= redMin + BASIC_FAST_MEDIAN_RANGE) {
+		redVal = (redMin + redMax) / 2;
+	}
+	else {
+		std::sort(redList, redList + num, std::greater<int>());
+
+		if (num % 2 == 1) {
+			redVal = redList[(num + 1) / 2];
+		}
+		else {
+			redVal = (redList[num / 2] + redList[num / 2 + 1]) / 2;
+		}
+	}
+
+	if (greenMax <= greenMin + BASIC_FAST_MEDIAN_RANGE) {
+		greenVal = (greenMin + greenMax) / 2;
+	}
+	else {
+		std::sort(greenList, greenList + num, std::greater<int>());
+
+		if (num % 2 == 1) {
+			greenVal = greenList[(num + 1) / 2];
+		}
+		else {
+			greenVal = (greenList[num / 2] + greenList[num / 2 + 1]) / 2;
+		}
+	}
+
+	if (blueMax <= blueMin + BASIC_FAST_MEDIAN_RANGE) {
+		blueVal = (blueMin + blueMax) / 2;
+	}
+	else {
+		std::sort(blueList, blueList + num, std::greater<int>());
+
+		if (num % 2 == 1) {
+			blueVal = blueList[(num + 1) / 2];
+		}
+		else {
+			blueVal = (blueList[num / 2] + blueList[num / 2 + 1]) / 2;
+		}
+	}
+
+	free(redList);
+	free(greenList);
+	free(blueList);
+
+#ifdef PRINT_NUM_MEDIANS
+	medians++;
+#endif
+
+	return RGB(redVal, greenVal, blueVal);
+}
+
+#else
+#ifdef VERY_FAST_MEDIAN_MODE
+COLORREF Image::very_fast_median(COLORREF*** colour, int x, int y, const int num) {
+	int* redList = static_cast<int*>(malloc(num * sizeof(int)));
+	int* greenList = static_cast<int*>(malloc(num * sizeof(int)));
+	int* blueList = static_cast<int*>(malloc(num * sizeof(int)));
+
+#ifdef CHECK_BAD_ALLOC
+	if (redList == nullptr) {
+		quick_exit(1);
+	}
+	if (greenList == nullptr) {
+		quick_exit(1);
+	}
+	if (blueList == nullptr) {
+		quick_exit(1);
+	}
+#endif
+
+	for (int i = 0; i < num; i++) {
+		redList[i] = GetRValue(colour[i][y][x]);
+		greenList[i] = GetGValue(colour[i][y][x]);
+		blueList[i] = GetBValue(colour[i][y][x]);
+	}
+
+	int redVal = quick_select<int>(redList, num);	
+	int greenVal = quick_select<int>(greenList, num);
+	int blueVal = quick_select<int>(blueList, num);
+
+#ifdef PRINT_NUM_MEDIANS
+	medians++;
+#endif
+
+	return RGB(redVal, greenVal, blueVal);
+}
+
+#else
 COLORREF Image::median(COLORREF*** colour, int x, int y, const int num) {
 	int* redList = static_cast<int*>(malloc(num * sizeof(int)));
 	int* greenList = static_cast<int*>(malloc(num * sizeof(int)));
@@ -155,8 +284,13 @@ COLORREF Image::median(COLORREF*** colour, int x, int y, const int num) {
 
 	return RGB(redVal, greenVal, blueVal);
 }
+#endif
+#endif
+#endif
 
-COLORREF Image::fast_median(COLORREF*** colour, int x, int y, const int num) {
+#ifndef NO_MODE
+#ifdef BASIC_FAST_MEDIAN_MODE
+COLORREF Image::basic_fast_mode(COLORREF*** colour, int x, int y, const int num) {
 	int* redList = static_cast<int*>(malloc(num * sizeof(int)));
 	int* greenList = static_cast<int*>(malloc(num * sizeof(int)));
 	int* blueList = static_cast<int*>(malloc(num * sizeof(int)));
@@ -179,6 +313,10 @@ COLORREF Image::fast_median(COLORREF*** colour, int x, int y, const int num) {
 		blueList[i] = GetBValue(colour[i][y][x]);
 	}
 
+	int redMode = *redList;
+	int greenMode = *greenList;
+	int blueMode = *blueList;
+
 	int redMax = redList[0], redMin = redList[0];
 	int greenMax = greenList[0], greenMin = greenList[0];
 	int blueMax = blueList[0], blueMin = blueList[0];
@@ -192,63 +330,209 @@ COLORREF Image::fast_median(COLORREF*** colour, int x, int y, const int num) {
 		blueMin = min(blueMin, blueList[i]);
 	}
 
-	int redVal, greenVal, blueVal;
-
-	if (redMax <= redMin + FAST_MEDIAN_RANGE) {
-		redVal = (redMin + redMax) / 2;
+	if (redMax <= redMin + BASIC_FAST_MODE_RANGE && greenMax <= greenMin + BASIC_FAST_MODE_RANGE && blueMax <= blueMin + BASIC_FAST_MODE_RANGE) {
+		redMode = (redMin + redMax) / 2;
+		greenMode = (greenMin + greenMax) / 2;
+		blueMode = (blueMin + blueMax) / 2;
 	}
 	else {
 		std::sort(redList, redList + num, std::greater<int>());
-
-		if (num % 2 == 1) {
-			redVal = redList[(num + 1) / 2];
-		}
-		else {
-			redVal = (redList[num / 2] + redList[num / 2 + 1]) / 2;
-		}
-	}
-
-	if (greenMax <= greenMin + FAST_MEDIAN_RANGE) {
-		greenVal = (greenMin + greenMax) / 2;
-	}
-	else {
 		std::sort(greenList, greenList + num, std::greater<int>());
-
-		if (num % 2 == 1) {
-			greenVal = greenList[(num + 1) / 2];
-		}
-		else {
-			greenVal = (greenList[num / 2] + greenList[num / 2 + 1]) / 2;
-		}
-	}
-
-	if (blueMax <= blueMin + FAST_MEDIAN_RANGE) {
-		blueVal = (blueMin + blueMax) / 2;
-	}
-	else {
 		std::sort(blueList, blueList + num, std::greater<int>());
 
-		if (num % 2 == 1) {
-			blueVal = blueList[(num + 1) / 2];
+		int red_count = 1, max_redCount = 1;
+		int green_count = 1, max_greenCount = 1;
+		int blue_count = 1, max_blueCount = 1;
+		for (int i = 1; i < num; i++) {
+			if (redList[i] == redList[i - 1]) {
+				red_count++;
+			}
+			else {
+				if (red_count > max_redCount) {
+					max_redCount = red_count;
+					redMode = redList[i - 1];
+				}
+				red_count = 1;
+			}
+
+			if (greenList[i] == greenList[i - 1]) {
+				green_count++;
+			}
+			else {
+				if (green_count > max_greenCount) {
+					max_greenCount = green_count;
+					greenMode = greenList[i - 1];
+				}
+				green_count = 1;
+			}
+
+			if (blueList[i] == blueList[i - 1]) {
+				blue_count++;
+			}
+			else {
+				if (blue_count > max_blueCount) {
+					max_blueCount = blue_count;
+					blueMode = blueList[i - 1];
+				}
+				blue_count = 1;
+			}
 		}
-		else {
-			blueVal = (blueList[num / 2] + blueList[num / 2 + 1]) / 2;
+
+		if (red_count > max_redCount) {
+			redMode = redList[num - 1];
+		}
+		if (blue_count > max_blueCount) {
+			blueMode = blueList[num - 1];
+}
+		if (green_count > max_greenCount) {
+			greenMode = greenList[num - 1];
 		}
 	}
+
+	COLORREF ret = RGB(redMode, greenMode, blueMode);
 
 	free(redList);
 	free(greenList);
 	free(blueList);
 
-#ifdef PRINT_NUM_MEDIANS
-	medians++;
+#ifdef PRINT_NUM_MODES
+	modes++;
 #endif
 
-	return RGB(redVal, greenVal, blueVal);
+	return ret;
 }
+
+#else
+#ifdef VERY_FAST_MEDIAN_MODE
+COLORREF Image::very_fast_mode(COLORREF*** colour, int x, int y, const int num) {
+	int* redList = static_cast<int*>(malloc(num * sizeof(int)));
+	int* greenList = static_cast<int*>(malloc(num * sizeof(int)));
+	int* blueList = static_cast<int*>(malloc(num * sizeof(int)));
+
+#ifdef CHECK_BAD_ALLOC
+	if (redList == nullptr) {
+		quick_exit(1);
+	}
+	if (greenList == nullptr) {
+		quick_exit(1);
+	}
+	if (blueList == nullptr) {
+		quick_exit(1);
+	}
 #endif
 
-#ifndef NO_MODE
+	for (int i = 0; i < num; i++) {
+		redList[i] = GetRValue(colour[i][y][x]);
+		greenList[i] = GetGValue(colour[i][y][x]);
+		blueList[i] = GetBValue(colour[i][y][x]);
+	}
+
+
+
+
+
+
+
+
+	// I have NOT been able to find a faster way to do mode, so currently this is the same as basic_fast_mode
+
+
+
+
+
+
+
+
+	int redMode = *redList;
+	int greenMode = *greenList;
+	int blueMode = *blueList;
+
+	int redMax = redList[0], redMin = redList[0];
+	int greenMax = greenList[0], greenMin = greenList[0];
+	int blueMax = blueList[0], blueMin = blueList[0];
+	for (int i = 1; i < num; i++) {
+		redMax = max(redMax, redList[i]);
+		greenMax = max(greenMax, greenList[i]);
+		blueMax = max(blueMax, blueList[i]);
+
+		redMin = min(redMin, redList[i]);
+		greenMin = min(greenMin, greenList[i]);
+		blueMin = min(blueMin, blueList[i]);
+	}
+
+	if (redMax <= redMin + BASIC_FAST_MODE_RANGE && greenMax <= greenMin + BASIC_FAST_MODE_RANGE && blueMax <= blueMin + BASIC_FAST_MODE_RANGE) {
+		redMode = (redMin + redMax) / 2;
+		greenMode = (greenMin + greenMax) / 2;
+		blueMode = (blueMin + blueMax) / 2;
+	}
+	else {
+		std::sort(redList, redList + num, std::greater<int>());
+		std::sort(greenList, greenList + num, std::greater<int>());
+		std::sort(blueList, blueList + num, std::greater<int>());
+
+		int red_count = 1, max_redCount = 1;
+		int green_count = 1, max_greenCount = 1;
+		int blue_count = 1, max_blueCount = 1;
+		for (int i = 1; i < num; i++) {
+			if (redList[i] == redList[i - 1]) {
+				red_count++;
+			}
+			else {
+				if (red_count > max_redCount) {
+					max_redCount = red_count;
+					redMode = redList[i - 1];
+				}
+				red_count = 1;
+			}
+
+			if (greenList[i] == greenList[i - 1]) {
+				green_count++;
+			}
+			else {
+				if (green_count > max_greenCount) {
+					max_greenCount = green_count;
+					greenMode = greenList[i - 1];
+				}
+				green_count = 1;
+			}
+
+			if (blueList[i] == blueList[i - 1]) {
+				blue_count++;
+			}
+			else {
+				if (blue_count > max_blueCount) {
+					max_blueCount = blue_count;
+					blueMode = blueList[i - 1];
+				}
+				blue_count = 1;
+			}
+		}
+
+		if (red_count > max_redCount) {
+			redMode = redList[num - 1];
+		}
+		if (blue_count > max_blueCount) {
+			blueMode = blueList[num - 1];
+		}
+		if (green_count > max_greenCount) {
+			greenMode = greenList[num - 1];
+		}
+	}
+
+	COLORREF ret = RGB(redMode, greenMode, blueMode);
+
+	free(redList);
+	free(greenList);
+	free(blueList);
+
+#ifdef PRINT_NUM_MODES
+	modes++;
+#endif
+
+	return ret;
+}
+
+#else
 COLORREF Image::mode(COLORREF*** colour, int x, int y, const int num) {
 	int* redList = static_cast<int*>(malloc(num * sizeof(int)));
 	int* greenList = static_cast<int*>(malloc(num * sizeof(int)));
@@ -340,118 +624,8 @@ COLORREF Image::mode(COLORREF*** colour, int x, int y, const int num) {
 
 	return ret;
 }
-
-COLORREF Image::fast_mode(COLORREF*** colour, int x, int y, const int num) {
-	int* redList = static_cast<int*>(malloc(num * sizeof(int)));
-	int* greenList = static_cast<int*>(malloc(num * sizeof(int)));
-	int* blueList = static_cast<int*>(malloc(num * sizeof(int)));
-
-#ifdef CHECK_BAD_ALLOC
-	if (redList == nullptr) {
-		quick_exit(1);
-	}
-	if (greenList == nullptr) {
-		quick_exit(1);
-	}
-	if (blueList == nullptr) {
-		quick_exit(1);
-	}
 #endif
-
-	for (int i = 0; i < num; i++) {
-		redList[i] = GetRValue(colour[i][y][x]);
-		greenList[i] = GetGValue(colour[i][y][x]);
-		blueList[i] = GetBValue(colour[i][y][x]);
-	}
-
-	int redMode = *redList;
-	int greenMode = *greenList;
-	int blueMode = *blueList;
-
-	int redMax = redList[0], redMin = redList[0];
-	int greenMax = greenList[0], greenMin = greenList[0];
-	int blueMax = blueList[0], blueMin = blueList[0];
-	for (int i = 1; i < num; i++) {
-		redMax = max(redMax, redList[i]);
-		greenMax = max(greenMax, greenList[i]);
-		blueMax = max(blueMax, blueList[i]);
-
-		redMin = min(redMin, redList[i]);
-		greenMin = min(greenMin, greenList[i]);
-		blueMin = min(blueMin, blueList[i]);
-	}
-
-	if (redMax <= redMin + FAST_MODE_RANGE && greenMax <= greenMin + FAST_MODE_RANGE && blueMax <= blueMin + FAST_MODE_RANGE) {
-		redMode = (redMin + redMax) / 2;
-		greenMode = (greenMin + greenMax) / 2;
-		blueMode = (blueMin + blueMax) / 2;
-	}
-	else {
-		std::sort(redList, redList + num, std::greater<int>());
-		std::sort(greenList, greenList + num, std::greater<int>());
-		std::sort(blueList, blueList + num, std::greater<int>());
-
-		int red_count = 1, max_redCount = 1;
-		int green_count = 1, max_greenCount = 1;
-		int blue_count = 1, max_blueCount = 1;
-		for (int i = 1; i < num; i++) {
-			if (redList[i] == redList[i - 1]) {
-				red_count++;
-			}
-			else {
-				if (red_count > max_redCount) {
-					max_redCount = red_count;
-					redMode = redList[i - 1];
-				}
-				red_count = 1;
-			}
-
-			if (greenList[i] == greenList[i - 1]) {
-				green_count++;
-			}
-			else {
-				if (green_count > max_greenCount) {
-					max_greenCount = green_count;
-					greenMode = greenList[i - 1];
-				}
-				green_count = 1;
-			}
-
-			if (blueList[i] == blueList[i - 1]) {
-				blue_count++;
-			}
-			else {
-				if (blue_count > max_blueCount) {
-					max_blueCount = blue_count;
-					blueMode = blueList[i - 1];
-				}
-				blue_count = 1;
-			}
-		}
-
-		if (red_count > max_redCount) {
-			redMode = redList[num - 1];
-		}
-		if (blue_count > max_blueCount) {
-			blueMode = blueList[num - 1];
-		}
-		if (green_count > max_greenCount) {
-			greenMode = greenList[num - 1];
-		}
-	}
-
-	COLORREF ret = RGB(redMode, greenMode, blueMode);
-
-	free(redList);
-	free(greenList);
-	free(blueList);
-
-#ifdef PRINT_NUM_MODES
-	modes++;
 #endif
-
-	return ret;
-}
 #endif
 
 void Image::ActualClean(int&, int&) {
@@ -784,10 +958,14 @@ void BitmapImage::ActualClean(int& width, int& height) {
 			}
 #endif
 			for (int x = 0; x < width; x++) {
-#ifdef FAST_MEDIAN_MODE
-				tempDataMedian[x] = fast_median(images, x, y, num_images);
+#ifdef BASIC_FAST_MEDIAN_MODE
+				tempDataMedian[x] = basic_fast_median(images, x, y, num_images);
+#else
+#ifdef VERY_FAST_MEDIAN_MODE
+				tempDataMedian[x] = very_fast_median(images, x, y, num_images);
 #else
 				tempDataMedian[x] = median(images, x, y, num_images);
+#endif
 #endif
 			}
 			imageDataMedian[y] = tempDataMedian;
@@ -813,10 +991,14 @@ void BitmapImage::ActualClean(int& width, int& height) {
 			}
 #endif
 			for (int x = 0; x < width; x++) {
-#ifdef FAST_MEDIAN_MODE
-				tempDataMode[x] = fast_mode(images, x, y, num_images);
+#ifdef BASIC_FAST_MEDIAN_MODE
+				tempDataMode[x] = basic_fast_mode(images, x, y, num_images);
+#else
+#ifdef VERY_FAST_MEDIAN_MODE
+				tempDataMode[x] = very_fast_mode(images, x, y, num_images);
 #else
 				tempDataMode[x] = mode(images, x, y, num_images);
+#endif
 #endif
 			}
 			imageDataMode[y] = tempDataMode;
@@ -1147,10 +1329,14 @@ void JPEGImage::ActualClean(int& width, int& height) {
 			}
 #endif
 			for (int x = 0; x < width; x++) {
-#ifdef FAST_MEDIAN_MODE
-				tempDataMedian[x] = fast_median(images, x, y, num_images);
+#ifdef BASIC_FAST_MEDIAN_MODE
+				tempDataMedian[x] = basic_fast_median(images, x, y, num_images);
+#else
+#ifdef VERY_FAST_MEDIAN_MODE
+				tempDataMedian[x] = very_fast_median(images, x, y, num_images);
 #else
 				tempDataMedian[x] = median(images, x, y, num_images);
+#endif
 #endif
 			}
 			imageDataMedian[y] = tempDataMedian;
@@ -1176,10 +1362,14 @@ void JPEGImage::ActualClean(int& width, int& height) {
 			}
 #endif
 			for (int x = 0; x < width; x++) {
-#ifdef FAST_MEDIAN_MODE
-				tempDataMode[x] = fast_mode(images, x, y, num_images);
+#ifdef BASIC_FAST_MEDIAN_MODE
+				tempDataMode[x] = basic_fast_mode(images, x, y, num_images);
+#else
+#ifdef VERY_FAST_MEDIAN_MODE
+				tempDataMode[x] = very_fast_mode(images, x, y, num_images);
 #else
 				tempDataMode[x] = mode(images, x, y, num_images);
+#endif
 #endif
 			}
 			imageDataMode[y] = tempDataMode;

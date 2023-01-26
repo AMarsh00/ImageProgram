@@ -11,9 +11,10 @@
 #include <thread>
 
 #include "stb_image.h"
+#include "quick_select.h"
 
-#define FAST_MEDIAN_RANGE 5 // Fast median will return average if max is within FAST_MEDIAN_RANGE of the min
-#define FAST_MODE_RANGE 5 // Fast mode will return average if max is within FAST_MODE_RANGE of the min
+#define BASIC_FAST_MEDIAN_RANGE 5 // Fast median will return average if max is within FAST_MEDIAN_RANGE of the min
+#define BASIC_FAST_MODE_RANGE 5 // Fast mode will return average if max is within FAST_MODE_RANGE of the min
 
 // Comment back in #define CHECK_BAD_ALLOC to break if malloc or calloc fails (debug feature)
 //#define CHECK_BAD_ALLOC
@@ -32,8 +33,12 @@
 // Comment back in #define PRETTY_PRINT to pretty print outputs (only relevant if the above output macros are commented in, and will take a little overhead)
 #define PRETTY_PRINT
 
-// Comment back in #define FAST_MEDIAN_MODE to use a faster, but slightly less accurate, median and mode function
-#define FAST_MEDIAN_MODE
+// Comment back in #define BASIC_FAST_MEDIAN_MODE to use a faster, but slightly less accurate, median and mode function
+//#define BASIC_FAST_MEDIAN_MODE
+
+// Comment back in #define VERY_FAST_MEDIAN_MODE to use a much faster, but much more innacurate, median and mode function
+// Note that BASIC_FAST_MEDIAN_MODE will override this if you have both commented in
+#define VERY_FAST_MEDIAN_MODE
 
 #ifdef PRINT_PIXELS_PER_SECOND
 #include <iostream>
@@ -126,12 +131,26 @@ public:
     COLORREF mean(COLORREF***, int, int, int);
 #endif
 #ifndef NO_MEDIAN
+#ifdef BASIC_FAST_MEDIAN_MODE
+    COLORREF basic_fast_median(COLORREF***, int, int, const int);
+#else
+#ifdef VERY_FAST_MEDIAN_MODE
+    COLORREF very_fast_median(COLORREF***, int, int, const int);
+#else
     COLORREF median(COLORREF***, int, int, const int);
-    COLORREF fast_median(COLORREF***, int, int, const int);
+#endif
+#endif
 #endif
 #ifndef NO_MODE
+#ifdef BASIC_FAST_MEDIAN_MODE
+    COLORREF basic_fast_mode(COLORREF***, int, int, const int);
+#else
+#ifdef VERY_FAST_MEDIAN_MODE
+    COLORREF very_fast_mode(COLORREF***, int, int, const int);
+#else
     COLORREF mode(COLORREF***, int, int, const int);
-    COLORREF fast_mode(COLORREF***, int, int, const int);
+#endif
+#endif
 #endif
 
 private:
