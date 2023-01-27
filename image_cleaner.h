@@ -2,6 +2,8 @@
 
 #define _CRT_SECURE_NO_WARNINGS
 
+#pragma warning (disable : 4244)
+
 #include <Windows.h>
 #include <string>
 #include <vector>
