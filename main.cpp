@@ -1,3 +1,5 @@
+// This is just a sample main function that uses image_cleaner.h's classes
+
 #include "image_cleaner.h"
 #include <iostream>
 

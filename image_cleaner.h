@@ -1,9 +1,12 @@
 #pragma once
 
+// I'm using some things that are technically depreciated, so this blocks warnings on that
 #define _CRT_SECURE_NO_WARNINGS
 
+// stb_image.h kept raising warning 4244, so I disabled it
 #pragma warning (disable : 4244)
 
+// Include necessary libraries
 #include <Windows.h>
 #include <string>
 #include <vector>
@@ -42,24 +45,27 @@
 // Note that BASIC_FAST_MEDIAN_MODE will override this if you have both commented in
 #define VERY_FAST_MEDIAN_MODE
 
+// Only include iostream if we're actually using it, as it takes a little bit of build time
 #ifdef PRINT_PIXELS_PER_SECOND
 #include <iostream>
-#else
+#else // PRINT_PIXELS_PER_SECOND
 #ifdef PRINT_NUM_MEANS
 #include <iostream>
-#else
+#else // PRINT_NUM_MEANS
 #ifdef PRINT_NUM_MEDIANS
 #include <iostream>
-#else
+#else // PRINT_NUM_MEDIANS
 #ifdef PRINT_NUM_MODES
 #include <iostream>
-#endif
-#endif
-#endif
-#endif
+#endif // PRINT_NUM_MODES
+#endif // PRINT_NUM_MEDIANS
+#endif // PRINT_NUM_MEANS
+#endif // PRINT_PIXELS_PER_SECOND
 
+// Image class, don't initialize things as Images, but it's useful (and saves some code) to initialize Image children as Image* blah = new BitmapImage;, for example
 class Image {
 public:
+    // Pixel struct that can write to .bmp files and saves pixel data
     struct Pixel {
         uint8_t blue;
         uint8_t green;
@@ -68,6 +74,7 @@ public:
         void save_on_file(std::ofstream&);
     };
 
+    // BMP Header information, don't worry about this
     struct BmpHeader {
         char bitmapSignatureBytes[2] = { 'B', 'M' };
         uint32_t sizeOfBitmapFile;
@@ -77,6 +84,7 @@ public:
         void save_on_file(std::ofstream&);
     };
 
+    // Other things that we have to write to the bmp header, don't worry about this
     struct BmpInfoHeader {
         uint32_t sizeOfThisHeader = 40;
         int32_t width; // in pixels
@@ -93,135 +101,152 @@ public:
         void save_on_file(std::ofstream&);
     };
 
+    // I'm using an overloaded constructor so that you don't have to specify output paths if you don't want to
     Image(std::string);
     Image(std::string, const char*, const char*, const char*);
+    // I like overriding the default destructor, even though I'm not actually destructing anything
     ~Image();
 
 private:
+    // If any of the print options are on, define variables that can save the print data
 #ifdef PRINT_PIXELS_PER_SECOND
     int m_pixels;
     clock_t readTime;
-#endif
+#endif // PRINT_PIXELS_PER_SECOND
 #ifdef PRINT_NUM_MEANS
     int means;
     clock_t meanTime;
-#endif
+#endif // PRINT_NUM_MEANS
 #ifdef PRINT_NUM_MEDIANS
     int medians;
     clock_t medianTime;
-#endif
+#endif // PRINT_NUM_MEDIANS
 #ifdef PRINT_NUM_MODES
     int modes;
     clock_t modeTime;
-#endif
+#endif // PRINT_NUM_MODES
 
+    // Variables for the directory path and output paths
     std::string path;
 #ifndef NO_MEAN
     std::string meanOutput;
-#endif
+#endif // NO_MEAN
 #ifndef NO_MEDIAN
     std::string medianOutput;
-#endif
+#endif // NO_MEDIAN
 #ifndef NO_MODE
     std::string modeOutput;
-#endif
+#endif // NO_MODE
 
+    // ReadImage should be called in the ActualClean routine
     virtual COLORREF** ReadImage(WCHAR*, int&, int&);
 
 public:
+    // I'm not bothering to define the toggled off mean/median/mode versions
 #ifndef NO_MEAN
     COLORREF mean(COLORREF***, int, int, int);
-#endif
+#endif // NO_MEAN
 #ifndef NO_MEDIAN
 #ifdef BASIC_FAST_MEDIAN_MODE
     COLORREF basic_fast_median(COLORREF***, int, int, const int);
-#else
+#else // BASIC_FAST_MEDIAN_MODE
 #ifdef VERY_FAST_MEDIAN_MODE
     COLORREF very_fast_median(COLORREF***, int, int, const int);
-#else
+#else // VERY_FAST_MEDIAN_MODE
     COLORREF median(COLORREF***, int, int, const int);
-#endif
-#endif
-#endif
+#endif // VERY_FAST_MEDIAN_MODE
+#endif // BASIC_FAST_MEDIAN_MODE
+#endif // NO_MEDIAN
 #ifndef NO_MODE
 #ifdef BASIC_FAST_MEDIAN_MODE
     COLORREF basic_fast_mode(COLORREF***, int, int, const int);
-#else
+#else // BASIC_FAST_MEDIAN_MODE
 #ifdef VERY_FAST_MEDIAN_MODE
     COLORREF very_fast_mode(COLORREF***, int, int, const int);
-#else
+#else // VERY_FAST_MEDIAN_MODE
     COLORREF mode(COLORREF***, int, int, const int);
-#endif
-#endif
-#endif
+#endif // VERY_FAST_MEDIAN_MODE
+#endif // BASIC_FAST_MEDIAN_MODE
+#endif // NO_MODE
 
 private:
+    // Clean(int&, int&) and Clean() both call this
     virtual void ActualClean(int&, int&);
 
 public:
+    // These are literally the same function, except Clean(int&, int&) allows you to retrieve width/height data
     void Clean(int&, int&);
     void Clean();
 
+    // If any of the print options are on, define basic functions that allow child classes to set/retrieve the print data
 #ifdef PRINT_PIXELS_PER_SECOND
     void SetReadTime(clock_t);
     void SetPixels(int);
 
     clock_t GetReadTime();
     int GetPixels();
-#endif
+#endif // PRINT_PIXELS_PER_SECOND
 #ifdef PRINT_NUM_MEANS
     void SetMeanTime(clock_t);
     void SetMeans(int);
 
     clock_t GetMeanTime();
     int GetMeans();
-#endif
+#endif // PRINT_NUM_MEANS
 #ifdef PRINT_NUM_MEDIANS
     void SetMedianTime(clock_t);
     void SetMedians(int);
 
     clock_t GetMedianTime();
     int GetMedians();
-#endif
+#endif // PRINT_NUM_MEDIANS
 #ifdef PRINT_NUM_MODES
     void SetModeTime(clock_t);
     void SetModes(int);
 
     clock_t GetModeTime();
     int GetModes();
-#endif
+#endif // PRINT_NUM_MODES
 
+    // Also define functions that let the child classes get the path data
     std::string GetPath();
 #ifndef NO_MEAN
     std::string GetMeanOutput();
-#endif
+#endif // NO_MEAN
 #ifndef NO_MEDIAN
     std::string GetMedianOutput();
-#endif
+#endif // NO_MEDIAN
 #ifndef NO_MODE
     std::string GetModeOutput();
-#endif
+#endif // NO_MODE
 };
 
+// Child class BitmapImage, used for .bmp images. It is slightly faster than JPEGImage
 class BitmapImage : public Image {
+    // Use Image's constructor
     using Image::Image;
 private:
+    // I could have added these to Image, but I think it's cleaner like this
     BmpHeader bmpHeader;
     BmpInfoHeader bmpInfoHeader;
 
 public:
+    // Override both of the virtual functions in Image
     COLORREF** ReadImage(WCHAR*, int&, int&) override;
 
     void ActualClean(int&, int&) override;
 };
 
+// Child class JPEGImage, used for .jpg images. It is slightly slower than BitmapImage, mainly due to file compression/etc. on jpegs
 class JPEGImage : public Image {
+    // Again, use Image's constructor
     using Image::Image;
 private:
     BmpHeader bmpHeader;
     BmpInfoHeader bmpInfoHeader;
 
 public:
+    // Also override both of the virtual functions
     COLORREF** ReadImage(WCHAR*, int&, int&) override;
 
     void ActualClean(int&, int&) override;
