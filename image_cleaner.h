@@ -49,6 +49,11 @@
 // Note that BASIC_FAST_MEDIAN_MODE will override this if you have both commented in
 #define VERY_FAST_MEDIAN_MODE
 
+// Comment back in #define GET_PATH_FROM_FILESYSTEM to use filesystem instead of default to fetch .exe path
+// If you're using filesystem, split.exe has to be in the same folder as the solution, not the .exe
+// Filesystem is still used for some things even if this is commented out
+//#define GET_PATH_FROM_FILESYSTEM
+
 // Only include iostream if we're actually using it, as it takes a little bit of build time
 #ifdef PRINT_PIXELS_PER_SECOND
 #include <iostream>
@@ -279,6 +284,9 @@ private:
     std::string filename;
 
     void ActualClean(int&, int&);
+#ifndef GET_PATH_FROM_FILESYSTEM
+    std::string GetEXEName();
+#endif // GET_PATH_FROM_FILESYSTEM
 
 public:
     void Clean(int&, int&);

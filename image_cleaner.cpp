@@ -1794,20 +1794,43 @@ void Video::ActualClean(int& width, int& height) {
 	BitmapImage realImage(path, mean, median, mode, 0);
 
 	// Get the running path
+#ifdef GET_PATH_FROM_FILESYSTEM
 	std::string my_path = std::filesystem::current_path().string();
-
-	// We don't want this file name in it, though
-	my_path = my_path.substr(0, strlen(my_path.c_str()) - strlen("ImageProgram"));
+#else // GET_PATH_FROM_FILESYSTEM
+	std::string my_path = GetEXEName().substr(0, GetEXEName().find_last_of('\\') + 1);
+#endif // GET_PATH_FROM_FILESYSTEM
 
 	// Run a compiled .bat script that splits the video into images. I couldn't figure out how to c++-ify this code, so it's a bit slower than it should be
 	std::string drive = ffmpegPath.substr(0, 2);
-	if (system((my_path + "\\split.exe " + drive + " " + ffmpegPath + " " + path + "\\" + filename).c_str()) == 0) {
+	// This is an if statement since I was having problems with it not waiting for system() to return before moving to clean
+	if (system((my_path + "\\split.exe " + drive + " " + ffmpegPath + " " + path + " " + filename).c_str()) == 0) {
 		
 	}
 
 	// Clean the sub image
 	realImage.Clean(width, height);
 }
+
+#ifndef GET_PATH_FROM_FILESYSTEM
+// Retrieves the name of the running executeble
+std::string Video::GetEXEName() {
+	// This is done differently on different systems
+#if defined(PLATFORM_POSIX) || defined(__linux__)
+	std::string sp;
+	std::ifstream("/proc/self/comm") >> sp;
+	return sp;
+
+#elif defined(_WIN32) // defined(PLATFORM_POSIX) || defined(__linux__)
+	char buf[MAX_PATH];
+	GetModuleFileNameA(nullptr, buf, MAX_PATH);
+	return buf;
+
+#else // defined(_WIN32)
+	static_assert(false, "unrecognized platform");
+
+#endif // defined(PLATFORM_POSIX) || defined(__linux__)
+}
+#endif // GET_PATH_FROM_FILESYSTEM
 
 // Just like with the other two, this just toggles on/off returns
 void Video::Clean(int& width, int& height) {
