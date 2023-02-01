@@ -21,7 +21,7 @@
   <PropertyGroup Label="Globals">
     <VCProjectVersion>16.0</VCProjectVersion>
     <Keyword>Win32Proj</Keyword>
-    <ProjectGuid>{ca6d20c7-aa90-49bb-a36a-b9a28611cf4d}</ProjectGuid>
+    <ProjectGuid>{0b835c10-9e8d-4bf2-ab5a-927041a24f16}</ProjectGuid>
     <RootNamespace>ImageProgram</RootNamespace>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
@@ -116,7 +116,6 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -140,14 +139,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="image_cleaner.cpp" />
-    <ClCompile Include="main.cpp" />
-    <ClCompile Include="stb_image.cpp" />
-  </ItemGroup>
-  <ItemGroup>
-    <ClInclude Include="image_cleaner.h" />
-    <ClInclude Include="quick_select.h" />
-    <ClInclude Include="stb_image.h" />
+    <ClCompile Include="ImageProgram.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

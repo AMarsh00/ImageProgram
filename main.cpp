@@ -28,4 +28,14 @@ int main() {
 	// You can also have it return width and height by passing them in
 
 	std::cout << clock() << std::endl;
+
+	Video video("D:\\ImageProgram\\Video\\", "C:\\Users\\ajkmc\\Downloads\\ffmpeg-5.1.2-essentials_build\\ffmpeg-5.1.2-essentials_build\\bin", "sample-5s.mp4");
+	// Video video("D:\\ImageProgram\\Video", "C:\\Users\\ajkmc\\Downloads\\ffmpeg-5.1.2-essentials_build\\ffmpeg-5.1.2-essentials_build\\bin", "sample-5s.mp4", "customMean.bmp", "customMedian.bmp", "customMode.bmp");
+	// You can also set custom output files. These also have to be .bmp
+
+	video.Clean();
+	// video.Clean(width, height);
+	// Like the rest, this can return width/height
+
+	std::cout << clock() << std::endl;
 }

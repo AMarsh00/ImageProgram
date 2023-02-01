@@ -81,6 +81,38 @@ Image::Image(std::string newPath, const char* newMeanOutput, const char* newMedi
 #endif // NO_MODE
 }
 
+// Overloaded Image constructor, this one initializes variables using custom output names
+// This one doesn't add path to the output files
+Image::Image(std::string newPath, const char* newMeanOutput, const char* newMedianOutput, const char* newModeOutput, int) {
+#ifdef PRINT_PIXELS_PER_SECOND
+	m_pixels = 0;
+	readTime = 0;
+#endif // PRINT_PIXELS_PER_SECOND
+#ifdef PRINT_NUM_MEANS
+	means = 0;
+	meanTime = 0;
+#endif // PRINT_NUM_MEANS
+#ifdef PRINT_NUM_MEDIANS
+	medians = 0;
+	medianTime = 0;
+#endif // PRINT_NUM_MEDIANS
+#ifdef PRINT_NUM_MODES
+	modes = 0;
+	modeTime = 0;
+#endif // PRINT_NUM_MODES
+	path = newPath;
+
+#ifndef NO_MEAN
+	meanOutput = newMeanOutput;
+#endif // NO_MEAN
+#ifndef NO_MEDIAN
+	medianOutput = newMedianOutput;
+#endif // NO_MEDIAN
+#ifndef NO_MODE
+	modeOutput = newModeOutput;
+#endif // NO_MODE
+}
+
 // Image destructor. I have nothing to delete, so it's empty
 Image::~Image() {
 
@@ -1697,4 +1729,92 @@ void JPEGImage::ActualClean(int& width, int& height) {
 	std::cout << modes << " modes calculated in " << modeTime << " milliseconds" << std::endl;
 #endif // PRETTY_PRINT
 #endif // PRINT_NUM_MODES
+}
+
+// Video constructors work basically the same as the last ones, except we now have to init image to a null pointer
+Video::Video(std::string newPath, std::string new_ffmpegPath, std::string fileName) {
+	path = newPath;
+	ffmpegPath = new_ffmpegPath;
+#ifndef NO_MEAN
+	std::string meanPath = path;
+	meanPath.append("mean.bmp");
+	meanOutput = meanPath;
+#endif // NO_MEAN
+#ifndef NO_MEDIAN
+	std::string medianPath = path;
+	medianPath.append("median.bmp");
+	medianOutput = medianPath;
+#endif // NO_MEDIAN
+#ifndef NO_MODE
+	std::string modePath = path;
+	modePath.append("mode.bmp");
+	modeOutput = modePath;
+#endif // NO_MODE
+	filename = fileName;
+
+}
+
+Video::Video(std::string newPath, std::string new_ffmpegPath, std::string fileName, std::string newMeanOutput, std::string newMedianOutput, std::string newModeOutput) {
+	path = newPath;
+	ffmpegPath = new_ffmpegPath;
+#ifdef NO_MEAN
+	meanOutput = newMeanOutput;
+#endif // NO_MEAN
+#ifndef NO_MEDIAN
+	medianOutput = newMedianOutput;
+#endif // NO_MEDIAN
+#ifndef NO_MODE
+	modeOutput = newModeOutput;
+#endif // NO_MODE
+	filename = fileName;
+}
+
+// Still deleting nothing as I have no pointer member variables
+Video::~Video() {
+
+}
+
+// This actually processes the video
+void Video::ActualClean(int& width, int& height) {
+#ifndef NO_MEAN
+	const char* mean = meanOutput.c_str();
+#else // NO_MEAN
+	const char* mean = " ";
+#endif // NO_MEAN
+#ifndef NO_MEDIAN
+	const char* median = medianOutput.c_str();
+#else // NO_MEDIAN
+	const char* median = " ";
+#endif // NO_MEDIAN
+#ifndef NO_MODE
+	const char* mode = modeOutput.c_str();
+#else // NO_MODE
+	const char* mode = " ";
+#endif // NO_MODE
+	BitmapImage realImage(path, mean, median, mode, 0);
+
+	// Get the running path
+	std::string my_path = std::filesystem::current_path().string();
+
+	// We don't want this file name in it, though
+	my_path = my_path.substr(0, strlen(my_path.c_str()) - strlen("ImageProgram"));
+
+	// Run a compiled .bat script that splits the video into images. I couldn't figure out how to c++-ify this code, so it's a bit slower than it should be
+	std::string drive = ffmpegPath.substr(0, 2);
+	if (system((my_path + "\\split.exe " + drive + " " + ffmpegPath + " " + path + "\\" + filename).c_str()) == 0) {
+		
+	}
+
+	// Clean the sub image
+	realImage.Clean(width, height);
+}
+
+// Just like with the other two, this just toggles on/off returns
+void Video::Clean(int& width, int& height) {
+	ActualClean(width, height);
+}
+
+void Video::Clean() {
+	int width = -1, height = -1;
+	ActualClean(width, height);
 }

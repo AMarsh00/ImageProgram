@@ -18,6 +18,10 @@
 #include "stb_image.h"
 #include "quick_select.h"
 
+// If you compile this on a different computer, you will have to download ffmpeg...
+// Also currently I'm using the free version of batch compiler, so split.exe will not work on other computers. You will have to compile split.bat yourself
+// (batch compiler costs $89.95, so I'd rather not buy it)
+
 #define BASIC_FAST_MEDIAN_RANGE 5 // Fast median will return average if max is within FAST_MEDIAN_RANGE of the min
 #define BASIC_FAST_MODE_RANGE 5 // Fast mode will return average if max is within FAST_MODE_RANGE of the min
 
@@ -102,8 +106,10 @@ public:
     };
 
     // I'm using an overloaded constructor so that you don't have to specify output paths if you don't want to
+    // You can also add an int at the end to not have it add path to output files
     Image(std::string);
     Image(std::string, const char*, const char*, const char*);
+    Image(std::string, const char*, const char*, const char*, int);
     // I like overriding the default destructor, even though I'm not actually destructing anything
     ~Image();
 
@@ -250,4 +256,31 @@ public:
     COLORREF** ReadImage(WCHAR*, int&, int&) override;
 
     void ActualClean(int&, int&) override;
+};
+
+// Video is a bit different than the other image classes
+class Video {
+public:
+    Video(std::string, std::string, std::string);
+    Video(std::string, std::string, std::string, std::string, std::string, std::string);
+    ~Video();
+
+private:
+    std::string path, ffmpegPath;
+#ifndef NO_MEAN
+    std::string meanOutput;
+#endif // NO_MEAN
+#ifndef NO_MEDIAN
+    std::string medianOutput;
+#endif // NO_MEDIAN
+#ifndef NO_MODE
+    std::string modeOutput;
+#endif // NO_MODE
+    std::string filename;
+
+    void ActualClean(int&, int&);
+
+public:
+    void Clean(int&, int&);
+    void Clean();
 };
