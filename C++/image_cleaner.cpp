@@ -1,11 +1,16 @@
 #include "image_cleaner.h"
 
+#ifndef NO_PIXEL_STRUCT
 // Routine to save the data from Pixel onto an ofstream& type file (basically just write to a file)
 void Image::Pixel::save_on_file(std::ofstream& fout) {
-	fout.write((char*)&this->blue, sizeof(uint8_t));
-	fout.write((char*)&this->green, sizeof(uint8_t));
-	fout.write((char*)&this->red, sizeof(uint8_t));
+	//fout.write((char*)&this->blue, sizeof(uint8_t));
+	//fout.write((char*)&this->green, sizeof(uint8_t));
+	//fout.write((char*)&this->red, sizeof(uint8_t));
+	// The line below basically does all of that ^ at once (one write call instead of 3, which is a big improvement as we're calling this function millions of times)
+	// Weirdly, we have to save them backwards
+	fout.write((char*)((std::string)(char*)&this->blue + (std::string)(char*)&this->green + (std::string)(char*)&this->red).c_str(), 3 * sizeof(uint8_t));
 }
+#endif // NO_PIXEL_STRUCT
 
 // Image constructor, initialize everything
 Image::Image(std::string newPath) {
@@ -79,6 +84,9 @@ Image::Image(std::string newPath, const char* newMeanOutput, const char* newMedi
 	modePath.append(newModeOutput);
 	modeOutput = modePath;
 #endif // NO_MODE
+
+	optional_picture = nullptr;
+	optional_num_pics = 0;
 }
 
 // Overloaded Image constructor, this one initializes variables using custom output names
@@ -111,11 +119,48 @@ Image::Image(std::string newPath, const char* newMeanOutput, const char* newMedi
 #ifndef NO_MODE
 	modeOutput = newModeOutput;
 #endif // NO_MODE
+
+	optional_picture = nullptr;
+	optional_num_pics = 0;
+}
+
+// Overloaded Image constructor, this one initializes variables using custom output names
+// This one is used exclusively in Video class
+Image::Image(COLORREF*** pictures, const char* newMeanOutput, const char* newMedianOutput, const char* newModeOutput, int newNumPics) {
+#ifdef PRINT_PIXELS_PER_SECOND
+	m_pixels = 0;
+	readTime = 0;
+#endif // PRINT_PIXELS_PER_SECOND
+#ifdef PRINT_NUM_MEANS
+	means = 0;
+	meanTime = 0;
+#endif // PRINT_NUM_MEANS
+#ifdef PRINT_NUM_MEDIANS
+	medians = 0;
+	medianTime = 0;
+#endif // PRINT_NUM_MEDIANS
+#ifdef PRINT_NUM_MODES
+	modes = 0;
+	modeTime = 0;
+#endif // PRINT_NUM_MODES
+
+	optional_picture = pictures;
+	optional_num_pics = newNumPics;
+
+#ifndef NO_MEAN
+	meanOutput = newMeanOutput;
+#endif // NO_MEAN
+#ifndef NO_MEDIAN
+	medianOutput = newMedianOutput;
+#endif // NO_MEDIAN
+#ifndef NO_MODE
+	modeOutput = newModeOutput;
+#endif // NO_MODE
 }
 
 // Image destructor. I have nothing to delete, so it's empty
 Image::~Image() {
-
+	
 }
 
 // I'm overriding this anyways, so it doesn't matter what's in it
@@ -194,7 +239,11 @@ COLORREF Image::basic_fast_median(COLORREF*** colour, int x, int y, const int nu
 
 	// If we're within the designated range, just return average
 	if (redMax <= redMin + BASIC_FAST_MEDIAN_RANGE) {
+#ifdef SHR_DIV
+		redVal = quick_div(redMin + redMax);
+#else // SHR_DIV
 		redVal = (redMin + redMax) / 2;
+#endif // SHR_DIV
 	}
 	// Otherwise, return true median
 	else {
@@ -202,39 +251,71 @@ COLORREF Image::basic_fast_median(COLORREF*** colour, int x, int y, const int nu
 		std::sort(redList, redList + num, std::greater<int>());
 
 		if (num % 2 == 1) {
+#ifdef SHR_DIV
+			redVal = redList[quick_div(num + 1)];
+#else // SHR_DIV
 			redVal = redList[(num + 1) / 2];
+#endif // SHR_DIV
 		}
 		else {
+#ifdef SHR_DIV
+			redVal = quick_div(redList[quick_div(num)] + redList[quick_div(num) + 1]);
+#else // SHR_DIV
 			redVal = (redList[num / 2] + redList[num / 2 + 1]) / 2;
+#endif // SHR_DIV
 		}
 	}
 
 	// Do the same as above with greenList, blueList
 	if (greenMax <= greenMin + BASIC_FAST_MEDIAN_RANGE) {
+#ifdef SHR_DIV
+		greenVal = quick_div(greenMin + greenMax);
+#else // SHR_DIV
 		greenVal = (greenMin + greenMax) / 2;
+#endif // SHR_DIV
 	}
 	else {
 		std::sort(greenList, greenList + num, std::greater<int>());
 
 		if (num % 2 == 1) {
+#ifdef SHR_DIV
+			greenVal = greenList[quick_div(num + 1)];
+#else // SHR_DIV
 			greenVal = greenList[(num + 1) / 2];
+#endif // SHR_DIV
 		}
 		else {
+#ifdef SHR_DIV
+			greenList = quick_div(greenList[quick_div(num)] + greenList[quick_div(num) + 1]);
+#else // SHR_DIV
 			greenVal = (greenList[num / 2] + greenList[num / 2 + 1]) / 2;
+#endif // SHR_DIV
 		}
 	}
 
 	if (blueMax <= blueMin + BASIC_FAST_MEDIAN_RANGE) {
+#ifdef SHR_DIV
+		blueVal = quick_div(blueMin + blueMax);
+#else // SHR_DIV
 		blueVal = (blueMin + blueMax) / 2;
+#endif // SHR_DIV
 	}
 	else {
 		std::sort(blueList, blueList + num, std::greater<int>());
 
 		if (num % 2 == 1) {
+#ifdef SHR_DIV
+			blueVal = blueList[quick_div(num + 1)];
+#else // SHR_DIV
 			blueVal = blueList[(num + 1) / 2];
+#endif // SHR_DIV
 		}
 		else {
+#ifdef SHR_DIV
+			blueVal = quick_div(blueList[quick_div(num)] + blueList[quick_div(num) + 1]);
+#else // SHR_DIV
 			blueVal = (blueList[num / 2] + blueList[num / 2 + 1]) / 2;
+#endif // SHR_DIV
 		}
 	}
 
@@ -335,14 +416,26 @@ COLORREF Image::median(COLORREF*** colour, int x, int y, const int num) {
 
 	int redVal, greenVal, blueVal;
 	if (num % 2 == 1) {
+#ifdef SHR_DIV
+		redVal = redList[quick_div(num + 1)];
+		greenVal = greenList[quick_div(num + 1)];
+		blueVal = blueList[quick_div(num + 1)];
+#else // SHR_DIV
 		redVal = redList[(num + 1) / 2];
 		greenVal = greenList[(num + 1) / 2];
 		blueVal = blueList[(num + 1) / 2];
+#endif // SHR_DIV
 	}
 	else {
+#ifdef SHR_DIV
+		redVal = quick_div(redList[quick_div(num)] + redList[quick_div(num) + 1]);
+		greenVal = quick_div(greenList[quick_div(num)] + greenList[quick_div(num) + 1]);
+		blueVal = quick_div(blueList[quick_div(num)] + blueList[quick_div(num) + 1]);
+#else // SHR_DIV
 		redVal = (redList[num / 2] + redList[num / 2 + 1]) / 2;
 		greenVal = (greenList[num / 2] + greenList[num / 2 + 1]) / 2;
 		blueVal = (blueList[num / 2] + blueList[num / 2 + 1]) / 2;
+#endif // SHR_DIV
 	}
 
 	// Free any memory allocated to the RGB arrays
@@ -392,6 +485,7 @@ COLORREF Image::basic_fast_mode(COLORREF*** colour, int x, int y, const int num)
 	}
 
 	// Figure out min/max of each colour
+	// When these were unsigned, the compiler still didn't give me shr :(
 	int redMode = *redList;
 	int greenMode = *greenList;
 	int blueMode = *blueList;
@@ -411,9 +505,15 @@ COLORREF Image::basic_fast_mode(COLORREF*** colour, int x, int y, const int num)
 
 	// If all of the mins and maxes are close, just return the average
 	if (redMax <= redMin + BASIC_FAST_MODE_RANGE && greenMax <= greenMin + BASIC_FAST_MODE_RANGE && blueMax <= blueMin + BASIC_FAST_MODE_RANGE) {
+#ifdef SHR_DIV
+		redMode = quick_div(redMin + redMax);
+		greenMode = quick_div(greenMin + greenMax);
+		blueMode = quick_div(blueMin + blueMax);
+#else // SHR_DIV
 		redMode = (redMin + redMax) / 2;
 		greenMode = (greenMin + greenMax) / 2;
 		blueMode = (blueMin + blueMax) / 2;
+#endif // SHR_DIV
 	}
 	// Otherwise, return the true mode
 	else {
@@ -549,9 +649,15 @@ COLORREF Image::very_fast_mode(COLORREF*** colour, int x, int y, const int num) 
 	}
 
 	if (redMax <= redMin + BASIC_FAST_MODE_RANGE && greenMax <= greenMin + BASIC_FAST_MODE_RANGE && blueMax <= blueMin + BASIC_FAST_MODE_RANGE) {
+#ifdef SHR_DIV
+		redMode = quick_div(redMin + redMax);
+		greenMode = quick_div(greenMin + greenMax);
+		blueMode = quick_div(blueMin + blueMax);
+#else // SHR_DIV
 		redMode = (redMin + redMax) / 2;
 		greenMode = (greenMin + greenMax) / 2;
 		blueMode = (blueMin + blueMax) / 2;
+#endif // SHR_DIV
 	}
 	else {
 		std::sort(redList, redList + num, std::greater<int>());
@@ -951,18 +1057,52 @@ COLORREF** BitmapImage::ReadImage(WCHAR* filename, int& width, int& height) {
 
 // This is the actual clean function for BitmapImage child class ONLY
 void BitmapImage::ActualClean(int& width, int& height) {
-	// std::vector<std::wstring> is just a c++-style list of wstrings. I'm using c++-style list here as I don't know how much memory I should allocate to validPaths
-	// Also c++-style lists don't need to be freed!
-	std::vector<std::wstring> validPaths;
+	COLORREF*** images;
+	int num_images;
 
-	// This is why this is a C++ 20 program. std::filesystem is new in this edition, and can be used to fetch all files in directory
-	for (const auto& entry : std::filesystem::directory_iterator(GetPath())) {
-		// Check if it ends in ".bmp", if it does, and it isn't one of the output files, then add it to the validPaths list
-		std::string substring = entry.path().string().substr(strlen(entry.path().string().c_str()) - 4), strlen(entry.path().string().c_str());
-		if (substring == ".bmp") {
-			// All of this preprocessor garbage basically just allows you to toggle on/off mean, median, and mode
+	// If this isn't a video, read images to get the images array
+	if (optional_picture == nullptr) {
+		// std::vector<std::wstring> is just a c++-style list of wstrings. I'm using c++-style list here as I don't know how much memory I should allocate to validPaths
+		// Also c++-style lists don't need to be freed!
+		std::vector<std::wstring> validPaths;
+
+		// This is why this is a C++ 20 program. std::filesystem is new in this edition, and can be used to fetch all files in directory
+		for (const auto& entry : std::filesystem::directory_iterator(GetPath())) {
+			// Check if it ends in ".bmp", if it does, and it isn't one of the output files, then add it to the validPaths list
+			std::string substring = entry.path().string().substr(strlen(entry.path().string().c_str()) - 4), strlen(entry.path().string().c_str());
+			if (substring == ".bmp") {
+				// All of this preprocessor garbage basically just allows you to toggle on/off mean, median, and mode
 #ifndef NO_MEAN
-			if (entry.path().string() != GetMeanOutput()) {
+				if (entry.path().string() != GetMeanOutput()) {
+#ifndef NO_MEDIAN
+					if (entry.path().string() != GetMedianOutput()) {
+#ifndef NO_MODE
+						if (entry.path().string() != GetModeOutput()) {
+							std::wstring temp(entry.path().string().size(), L' ');
+							temp.resize(mbstowcs(&temp[0], entry.path().string().c_str(), entry.path().string().size()));
+							validPaths.push_back(temp);
+						}
+#else // NO_MODE
+						std::wstring temp(entry.path().string().size(), L' ');
+						temp.resize(mbstowcs(&temp[0], entry.path().string().c_str(), entry.path().string().size()));
+						validPaths.push_back(temp);
+#endif // NO_MODE
+					}
+#else // NO_MEDIAN
+#ifndef NO_MODE
+					if (entry.path().string() != GetModeOutput()) {
+						std::wstring temp(entry.path().string().size(), L' ');
+						temp.resize(mbstowcs(&temp[0], entry.path().string().c_str(), entry.path().string().size()));
+						validPaths.push_back(temp);
+					}
+#else // NO_MODE
+					std::wstring temp(entry.path().string().size(), L' ');
+					temp.resize(mbstowcs(&temp[0], entry.path().string().c_str(), entry.path().string().size()));
+					validPaths.push_back(temp);
+#endif // NO_MODE
+#endif // NO_MEDIAN
+				}
+#else // NO_MEAN
 #ifndef NO_MEDIAN
 				if (entry.path().string() != GetMedianOutput()) {
 #ifndef NO_MODE
@@ -985,58 +1125,93 @@ void BitmapImage::ActualClean(int& width, int& height) {
 					validPaths.push_back(temp);
 				}
 #else // NO_MODE
-				std::wstring temp(entry.path().string().size(), L' ');
-				temp.resize(mbstowcs(&temp[0], entry.path().string().c_str(), entry.path().string().size()));
-				validPaths.push_back(temp);
-#endif // NO_MODE
-#endif // NO_MEDIAN
-			}
-#else // NO_MEAN
-#ifndef NO_MEDIAN
-			if (entry.path().string() != GetMedianOutput()) {
-#ifndef NO_MODE
-				if (entry.path().string() != GetModeOutput()) {
-					std::wstring temp(entry.path().string().size(), L' ');
-					temp.resize(mbstowcs(&temp[0], entry.path().string().c_str(), entry.path().string().size()));
-					validPaths.push_back(temp);
-				}
-#else // NO_MODE
-				std::wstring temp(entry.path().string().size(), L' ');
-				temp.resize(mbstowcs(&temp[0], entry.path().string().c_str(), entry.path().string().size()));
-				validPaths.push_back(temp);
-#endif // NO_MODE
-			}
-#else // NO_MEDIAN
-#ifndef NO_MODE
-			if (entry.path().string() != GetModeOutput()) {
-				std::wstring temp(entry.path().string().size(), L' ');
-				temp.resize(mbstowcs(&temp[0], entry.path().string().c_str(), entry.path().string().size()));
-				validPaths.push_back(temp);
-			}
-#else // NO_MODE
-			quick_exit(1);
+				quick_exit(1);
 #endif // NO_MODE
 #endif // NO_MEDIAN
 #endif // NO_MEAN
+			}
 		}
-	}
 
-	int num_images = (int)validPaths.size();
-	
-	// Allocate enough memory for an array of COLORREF** (pointers to arrays of COLORREF) with size num_images
-	// calloc is basically just malloc but you can pass in a non-const size
-	COLORREF*** images = static_cast<COLORREF***>(calloc(num_images, sizeof(COLORREF**)));
-	// If CHECK_BAD_ALLOC is on, break on bad allowance (debug option)
+#ifdef PRINT_TIME_AFTER_FILESYSTEM
+		std::cout << clock() << std::endl;
+#endif // PRINT_TIME_AFTER_FILESYSTEM
+
+		num_images = (int)validPaths.size();
+
+		// Allocate enough memory for an array of COLORREF** (pointers to arrays of COLORREF) with size num_images
+		// calloc is basically just malloc but you can pass in a non-const size
+		images = static_cast<COLORREF***>(calloc(num_images, sizeof(COLORREF**)));
+		// If CHECK_BAD_ALLOC is on, break on bad allowance (debug option)
 #ifdef CHECK_BAD_ALLOC
-	if (images == nullptr) {
-		quick_exit(1);
-	}
+		if (images == nullptr) {
+			quick_exit(1);
+		}
 #endif // CHECK_BAD_ALLOC
 
-	// Initialize images[i] to the COLORREF** that is the data of the file at validPaths[i]
-	for (int i = 0; i < num_images; i++) {
-		images[i] = ReadImage((WCHAR*)validPaths[i].c_str(), width, height);
+		// Initialize images[i] to the COLORREF** that is the data of the file at validPaths[i]
+#ifdef TRY_MULTITHREAD_LOAD
+		auto imageReadThread = [&](int j) {
+			// It splits up total num_images into 4 chunks
+#ifdef SHR_DIV
+			for (int i = quick_div(quick_div(num_images * (j - 1))); i < quick_div(quick_div(num_images * j)); i++) {
+#else // SHR_DIV
+			for (int i = num_images * (j - 1) / 4; i < num_images * j / 4; i++) {
+#endif // SHR_DIV
+				// Store ReadImage in srcPtr
+				images[i] = ReadImage((WCHAR*)validPaths[i].c_str(), width, height);
+			}
+			};
+
+		// Init threads for reading the image
+		std::thread imageReadThread1(imageReadThread, 1);
+		std::thread imageReadThread2(imageReadThread, 2);
+		std::thread imageReadThread3(imageReadThread, 3);
+		std::thread imageReadThread4(imageReadThread, 4);
+
+		// Rejoin image reading threads
+		imageReadThread1.join();
+		imageReadThread2.join();
+		imageReadThread3.join();
+		imageReadThread4.join();
+#else // TRY_MULTITHREAD_LOAD
+		for (int i = 0; i < num_images; i++) {
+			images[i] = ReadImage((WCHAR*)validPaths[i].c_str(), width, height);
+		}
+#endif // TRY_MULTITHREAD_LOAD
 	}
+	else {
+		images = optional_picture;
+		num_images = optional_num_pics;
+	}
+
+	// Set some bmpHeader things, don't worry about it
+#ifdef WRITE_HEADER_SEPERATELY
+	// If we're writing header seperately, use a lambda function and a thread to start that up
+	auto headerWrite = [&]() {
+#endif // WRITE_HEADER_SEPERATELY
+		bmpInfoHeader.width = width;
+		bmpInfoHeader.height = height;
+
+		bmpHeader.sizeOfBitmapFile = width * height * bmpInfoHeader.colorDepth;
+
+#ifdef WRITE_HEADER_SEPERATELY
+		// Write header to file
+		std::ofstream foutMean(GetMeanOutput(), std::ios::binary);
+		std::ofstream foutMedian(GetMedianOutput(), std::ios::binary);
+		std::ofstream foutMode(GetModeOutput(), std::ios::binary);
+		bmpHeader.save_on_file(foutMean);
+		bmpInfoHeader.save_on_file(foutMean);
+		bmpHeader.save_on_file(foutMedian);
+		bmpInfoHeader.save_on_file(foutMedian);
+		bmpHeader.save_on_file(foutMode);
+		bmpInfoHeader.save_on_file(foutMode);
+		foutMean.close();
+		foutMedian.close();
+		foutMode.close();
+	};
+
+	std::thread headerWriteThread(headerWrite);
+#endif // WRITE_HEADER_SEPERATELY
 
 	// Allocate enough memory for mean/median/mode lists IF those are toggled on
 #ifndef NO_MEAN
@@ -1187,27 +1362,45 @@ void BitmapImage::ActualClean(int& width, int& height) {
 	std::thread modeThread(doMode);
 #endif // NO_MODE
 
-	// Set some bmpHeader things, don't worry about it
-	bmpInfoHeader.width = width;
-	bmpInfoHeader.height = height;
-
-	bmpHeader.sizeOfBitmapFile = width * height * bmpInfoHeader.colorDepth;
+#ifdef PRINT_TIME_BEFORE_WRITING
+	std::cout << "Finished processing data at: " << clock() << std::endl;
+#endif // PRINT_TIME_BEFORE_WRITING
+#ifdef WRITE_HEADER_SEPERATELY
+	// Rejoin header write thread
+	headerWriteThread.join();
+#endif // WRITE_HEADER_SEPERATELY
 
 	// We have another set of lambda functions, but these ones are for writing our mean/median/mode output to the files they're going to
 #ifndef NO_MEAN
 	auto meanWrite = [&]() {
 		// std::ofstream just lets us open a file and write to it
+#ifdef WRITE_HEADER_SEPERATELY
+		std::ofstream foutMean(GetMeanOutput(), std::ios::binary | std::ios::app);
+#else // WRITE_HEADER_SEPERATELY
 		std::ofstream foutMean(GetMeanOutput(), std::ios::binary);
+#endif // WRITE_HEADER_SEPERATELY
 
+#ifndef WRITE_HEADER_SEPERATELY
 		// Write the header first
 		bmpHeader.save_on_file(foutMean);
 		bmpInfoHeader.save_on_file(foutMean);
+#endif // WRITE_HEADER_SEPERATELY
 
 		// While we index through the file, create a Pixel object and write that to the file for each y,x
 		for (int y = 0; y < height; y++) {
 			for (int x = 0; x < width; x++) {
+				// Save each pixel y,x to the file
+#ifndef NO_PIXEL_STRUCT
 				Pixel pixel{ GetBValue(imageDataMean[y][x]), GetGValue(imageDataMean[y][x]), GetRValue(imageDataMean[y][x]) };
 				pixel.save_on_file(foutMean);
+#else // NO_PIXEL_STRUCT
+				uint8_t b = GetBValue(imageDataMean[y][x]);
+				uint8_t g = GetGValue(imageDataMean[y][x]);
+				uint8_t r = GetRValue(imageDataMean[y][x]);
+				foutMean.write((char*)&b, sizeof(uint8_t));
+				foutMean.write((char*)&g, sizeof(uint8_t));
+				foutMean.write((char*)&r, sizeof(uint8_t));
+#endif // NO_PIXEL_STRUCT
 			}
 			// Now we're done with imageDataMean[y], so we can free it
 			free(imageDataMean[y]);
@@ -1220,17 +1413,32 @@ void BitmapImage::ActualClean(int& width, int& height) {
 #ifndef NO_MEDIAN
 	auto medianWrite = [&]() {
 		// Open median output file
+#ifdef WRITE_HEADER_SEPERATELY
+		std::ofstream foutMedian(GetMedianOutput(), std::ios::binary | std::ios::app);
+#else // WRITE_HEADER_SEPERATELY
 		std::ofstream foutMedian(GetMedianOutput(), std::ios::binary);
+#endif // WRITE_HEADER_SEPERATELY
 
+#ifndef WRITE_HEADER_SEPERATELY
 		// Write headers to the file
 		bmpHeader.save_on_file(foutMedian);
 		bmpInfoHeader.save_on_file(foutMedian);
+#endif
 
 		for (int y = 0; y < height; y++) {
 			for (int x = 0; x < width; x++) {
 				// Save each pixel y,x to the file
+#ifndef NO_PIXEL_STRUCT
 				Pixel pixel2{ GetBValue(imageDataMedian[y][x]), GetGValue(imageDataMedian[y][x]), GetRValue(imageDataMedian[y][x]) };
 				pixel2.save_on_file(foutMedian);
+#else // NO_PIXEL_STRUCT
+				uint8_t b = GetBValue(imageDataMedian[y][x]);
+				uint8_t g = GetGValue(imageDataMedian[y][x]);
+				uint8_t r = GetRValue(imageDataMedian[y][x]);
+				foutMedian.write((char*)&b, sizeof(uint8_t));
+				foutMedian.write((char*)&g, sizeof(uint8_t));
+				foutMedian.write((char*)&r, sizeof(uint8_t));
+#endif // NO_PIXEL_STRUCT
 			}
 			// We're done with imageDataMedian[y] now, so we can free it
 			free(imageDataMedian[y]);
@@ -1243,17 +1451,32 @@ void BitmapImage::ActualClean(int& width, int& height) {
 #ifndef NO_MODE
 	auto modeWrite = [&]() {
 		// Open mode output file
+#ifdef WRITE_HEADER_SEPERATELY
+		std::ofstream foutMode(GetModeOutput(), std::ios::binary | std::ios::app);
+#else // WRITE_HEADER_SEPERATELY
 		std::ofstream foutMode(GetModeOutput(), std::ios::binary);
+#endif // WRITE_HEADER_SEPERATELY
 
+#ifndef WRITE_HEADER_SEPERATELY
 		// Save headers on file
 		bmpHeader.save_on_file(foutMode);
 		bmpInfoHeader.save_on_file(foutMode);
+#endif
 
 		for (int y = 0; y < height; y++) {
 			for (int x = 0; x < width; x++) {
 				// Save each pixel to the file
+#ifndef NO_PIXEL_STRUCT
 				Pixel pixel3{ GetBValue(imageDataMode[y][x]), GetGValue(imageDataMode[y][x]), GetRValue(imageDataMode[y][x]) };
 				pixel3.save_on_file(foutMode);
+#else // NO_PIXEL_STRUCT
+				uint8_t b = GetBValue(imageDataMode[y][x]);
+				uint8_t g = GetGValue(imageDataMode[y][x]);
+				uint8_t r = GetRValue(imageDataMode[y][x]);
+				foutMode.write((char*)&b, sizeof(uint8_t));
+				foutMode.write((char*)&g, sizeof(uint8_t));
+				foutMode.write((char*)&r, sizeof(uint8_t));
+#endif // NO_PIXEL_STRUCT
 			}
 			// We're done with imageDataMode[y], so we can free it
 			free(imageDataMode[y]);
@@ -1310,7 +1533,7 @@ void BitmapImage::ActualClean(int& width, int& height) {
 	float divVal = (float)GetReadTime() / 1000.0f;
 	std::cout << "Reading pixels at a rate of " << (float)GetPixels() / divVal << " pixels per second" << std::endl;
 #else // PRETTY_PRINT
-	std::cout << m_pixels << " pixels read in " << readTime << " milliseconds" << std::endl;
+	std::cout << GetPixels() << " pixels read in " << GetReadTime() << " milliseconds" << std::endl;
 #endif // PRETTY_PRINT
 #endif // PRINT_PIXELS_PER_SECOND
 #ifdef PRINT_NUM_MEANS
@@ -1318,7 +1541,7 @@ void BitmapImage::ActualClean(int& width, int& height) {
 	divVal = (float)GetMeanTime() / 1000.0f;
 	std::cout << "Calculating means at a rate of " << (float)GetMeans() / divVal << " means per second" << std::endl;
 #else // PRETTY_PRINT
-	std::cout << means << " means calculated in " << meanTime << " milliseconds" << std::endl;
+	std::cout << GetMeans() << " means calculated in " << GetMeanTime() << " milliseconds" << std::endl;
 #endif // PRETTY_PRINT
 #endif // PRINT_NUM_MEANS
 #ifdef PRINT_NUM_MEDIANS
@@ -1326,7 +1549,7 @@ void BitmapImage::ActualClean(int& width, int& height) {
 	divVal = (float)GetMedianTime() / 1000.0f;
 	std::cout << "Calculating medians at a rate of " << (float)GetMedians() / divVal << " medians per second" << std::endl;
 #else // PRETTY_PRINT
-	std::cout << medians << " medians calculated in " << medianTime << " milliseconds" << std::endl;
+	std::cout << GetMedians() << " medians calculated in " << GetMedianTime() << " milliseconds" << std::endl;
 #endif // PRETTY_PRINT
 #endif // PRINT_NUM_MEDIANS
 #ifdef PRINT_NUM_MODES
@@ -1334,7 +1557,7 @@ void BitmapImage::ActualClean(int& width, int& height) {
 	divVal = (float)GetModeTime() / 1000.0f;
 	std::cout << "Calculating modes at a rate of " << (float)GetModes() / divVal << " modes per second" << std::endl;
 #else // PRETTY_PRINT
-	std::cout << modes << " modes calculated in " << modeTime << " milliseconds" << std::endl;
+	std::cout << GetModes() << " modes calculated in " << GetModeTime() << " milliseconds" << std::endl;
 #endif // PRETTY_PRINT
 #endif // PRINT_NUM_MODES
 }
@@ -1469,6 +1692,10 @@ void JPEGImage::ActualClean(int& width, int& height) {
 		}
 	}
 
+#ifdef PRINT_TIME_AFTER_FILESYSTEM
+	std::cout << clock() << std::endl;
+#endif // PRINT_TIME_AFTER_FILESYSTEM
+
 	int num_images = (int)validPaths.size();
 
 	COLORREF*** images = static_cast<COLORREF***>(calloc(num_images, sizeof(COLORREF**)));
@@ -1478,9 +1705,64 @@ void JPEGImage::ActualClean(int& width, int& height) {
 	}
 #endif // CHECK_BAD_ALLOC
 
+#ifdef TRY_MULTITHREAD_LOAD
+	auto imageReadThread = [&](int j) {
+		// It splits up total num_images into 4 chunks
+#ifdef SHR_DIV
+		for (int i = quick_div(quick_div(num_images * (j - 1))); i < quick_div(quick_div(num_images * j)); i++) {
+#else // SHR_DIV
+		for (int i = num_images * (j - 1) / 4; i < num_images * j / 4; i++) {
+#endif // SHR_DIV
+			// Store ReadImage in srcPtr
+			images[i] = ReadImage((WCHAR*)validPaths[i].c_str(), width, height);
+		}
+		};
+
+	// Init threads for reading the image
+	std::thread imageReadThread1(imageReadThread, 1);
+	std::thread imageReadThread2(imageReadThread, 2);
+	std::thread imageReadThread3(imageReadThread, 3);
+	std::thread imageReadThread4(imageReadThread, 4);
+
+	// Rejoin image reading threads
+	imageReadThread1.join();
+	imageReadThread2.join();
+	imageReadThread3.join();
+	imageReadThread4.join();
+#else // TRY_MULTITHREAD_LOAD
 	for (int i = 0; i < num_images; i++) {
 		images[i] = ReadImage((WCHAR*)validPaths[i].c_str(), width, height);
 	}
+#endif // TRY_MULTITHREAD_LOAD
+
+	// Set some bmpHeader things, don't worry about it
+#ifdef WRITE_HEADER_SEPERATELY
+	// If we're writing header seperately, use a lambda function and a thread to start that up
+	auto headerWrite = [&]() {
+#endif // WRITE_HEADER_SEPERATELY
+		bmpInfoHeader.width = width;
+		bmpInfoHeader.height = height;
+
+		bmpHeader.sizeOfBitmapFile = width * height * bmpInfoHeader.colorDepth;
+
+#ifdef WRITE_HEADER_SEPERATELY
+		// Write header to file
+		std::ofstream foutMean(GetMeanOutput(), std::ios::binary);
+		std::ofstream foutMedian(GetMedianOutput(), std::ios::binary);
+		std::ofstream foutMode(GetModeOutput(), std::ios::binary);
+		bmpHeader.save_on_file(foutMean);
+		bmpInfoHeader.save_on_file(foutMean);
+		bmpHeader.save_on_file(foutMedian);
+		bmpInfoHeader.save_on_file(foutMedian);
+		bmpHeader.save_on_file(foutMode);
+		bmpInfoHeader.save_on_file(foutMode);
+		foutMean.close();
+		foutMedian.close();
+		foutMode.close();
+	};
+
+	std::thread headerWriteThread(headerWrite);
+#endif // WRITE_HEADER_SEPERATELY
 
 #ifndef NO_MEAN
 	COLORREF** imageDataMean = static_cast<COLORREF**>(malloc(height * sizeof(COLORREF*)));
@@ -1604,22 +1886,44 @@ void JPEGImage::ActualClean(int& width, int& height) {
 	std::thread modeThread(doMode);
 #endif // NO_MODE
 
-	bmpInfoHeader.width = width;
-	bmpInfoHeader.height = height;
+#ifdef PRINT_TIME_BEFORE_WRITING
+	std::cout << "Finished processing data at: " << clock() << std::endl;
+#endif // PRINT_TIME_BEFORE_WRITING
 
-	bmpHeader.sizeOfBitmapFile = width * height * bmpInfoHeader.colorDepth;
+#ifdef WRITE_HEADER_SEPERATELY
+	// Rejoin header write thread
+	headerWriteThread.join();
+#endif // WRITE_HEADER_SEPERATELY
 
 #ifndef NO_MEAN
 	auto meanWrite = [&]() {
+#ifdef WRITE_HEADER_SEPERATELY
+		std::ofstream foutMean(GetMeanOutput(), std::ios::binary | std::ios::app);
+#else // WRITE_HEADER_SEPERATELY
 		std::ofstream foutMean(GetMeanOutput(), std::ios::binary);
+#endif // WRITE_HEADER_SEPERATELY
+
+#ifndef WRITE_HEADER_SEPERATELY
+		bmpHeader.save_on_file(foutMean);
+		bmpInfoHeader.save_on_file(foutMean);
+#endif // WRITE_HEADER_SEPERATELY
 
 		bmpHeader.save_on_file(foutMean);
 		bmpInfoHeader.save_on_file(foutMean);
 
 		for (int y = 0; y < height; y++) {
 			for (int x = 0; x < width; x++) {
+#ifndef NO_PIXEL_STRUCT
 				Pixel pixel{ GetBValue(imageDataMean[y][x]), GetGValue(imageDataMean[y][x]), GetRValue(imageDataMean[y][x]) };
 				pixel.save_on_file(foutMean);
+#else // NO_PIXEL_STRUCT
+				uint8_t b = GetBValue(imageDataMean[y][x]);
+				uint8_t g = GetGValue(imageDataMean[y][x]);
+				uint8_t r = GetRValue(imageDataMean[y][x]);
+				foutMean.write((char*)&b, sizeof(uint8_t));
+				foutMean.write((char*)&g, sizeof(uint8_t));
+				foutMean.write((char*)&r, sizeof(uint8_t));
+#endif // NO_PIXEL_STRUCT
 			}
 			free(imageDataMean[y]);
 		}
@@ -1629,15 +1933,31 @@ void JPEGImage::ActualClean(int& width, int& height) {
 
 #ifndef NO_MEDIAN
 	auto medianWrite = [&]() {
+#ifdef WRITE_HEADER_SEPERATELY
+		std::ofstream foutMedian(GetMedianOutput(), std::ios::binary | std::ios::app);
+#else // WRITE_HEADER_SEPERATELY
 		std::ofstream foutMedian(GetMedianOutput(), std::ios::binary);
+#endif // WRITE_HEADER_SEPERATELY
 
+#ifndef WRITE_HEADER_SEPERATELY
+		// Write headers to the file
 		bmpHeader.save_on_file(foutMedian);
 		bmpInfoHeader.save_on_file(foutMedian);
+#endif
 
 		for (int y = 0; y < height; y++) {
 			for (int x = 0; x < width; x++) {
+#ifndef NO_PIXEL_STRUCT
 				Pixel pixel2{ GetBValue(imageDataMedian[y][x]), GetGValue(imageDataMedian[y][x]), GetRValue(imageDataMedian[y][x]) };
 				pixel2.save_on_file(foutMedian);
+#else // NO_PIXEL_STRUCT
+				uint8_t b = GetBValue(imageDataMedian[y][x]);
+				uint8_t g = GetGValue(imageDataMedian[y][x]);
+				uint8_t r = GetRValue(imageDataMedian[y][x]);
+				foutMedian.write((char*)&b, sizeof(uint8_t));
+				foutMedian.write((char*)&g, sizeof(uint8_t));
+				foutMedian.write((char*)&r, sizeof(uint8_t));
+#endif // NO_PIXEL_STRUCT
 			}
 			free(imageDataMedian[y]);
 		}
@@ -1647,15 +1967,31 @@ void JPEGImage::ActualClean(int& width, int& height) {
 
 #ifndef NO_MODE
 	auto modeWrite = [&]() {
+#ifdef WRITE_HEADER_SEPERATELY
+		std::ofstream foutMode(GetModeOutput(), std::ios::binary | std::ios::app);
+#else // WRITE_HEADER_SEPERATELY
 		std::ofstream foutMode(GetModeOutput(), std::ios::binary);
+#endif // WRITE_HEADER_SEPERATELY
 
+#ifndef WRITE_HEADER_SEPERATELY
+		// Save headers on file
 		bmpHeader.save_on_file(foutMode);
 		bmpInfoHeader.save_on_file(foutMode);
+#endif
 
 		for (int y = 0; y < height; y++) {
 			for (int x = 0; x < width; x++) {
+#ifndef NO_PIXEL_STRUCT
 				Pixel pixel3{ GetBValue(imageDataMode[y][x]), GetGValue(imageDataMode[y][x]), GetRValue(imageDataMode[y][x]) };
 				pixel3.save_on_file(foutMode);
+#else // NO_PIXEL_STRUCT
+				uint8_t b = GetBValue(imageDataMode[y][x]);
+				uint8_t g = GetGValue(imageDataMode[y][x]);
+				uint8_t r = GetRValue(imageDataMode[y][x]);
+				foutMode.write((char*)&b, sizeof(uint8_t));
+				foutMode.write((char*)&g, sizeof(uint8_t));
+				foutMode.write((char*)&r, sizeof(uint8_t));
+#endif // NO_PIXEL_STRUCT
 			}
 			free(imageDataMode[y]);
 		}
@@ -1702,7 +2038,7 @@ void JPEGImage::ActualClean(int& width, int& height) {
 	float divVal = (float)GetReadTime() / 1000.0f;
 	std::cout << "Reading pixels at a rate of " << (float)GetPixels() / divVal << " pixels per second" << std::endl;
 #else // PRETTY_PRINT
-	std::cout << m_pixels << " pixels read in " << readTime << " milliseconds" << std::endl;
+	std::cout << GetPixels() << " pixels read in " << GetReadTime() << " milliseconds" << std::endl;
 #endif // PRETTY_PRINT
 #endif // PRINT_PIXELS_PER_SECOND
 #ifdef PRINT_NUM_MEANS
@@ -1710,7 +2046,7 @@ void JPEGImage::ActualClean(int& width, int& height) {
 	divVal = (float)GetMeanTime() / 1000.0f;
 	std::cout << "Calculating means at a rate of " << (float)GetMeans() / divVal << " means per second" << std::endl;
 #else // PRETTY_PRINT
-	std::cout << means << " means calculated in " << meanTime << " milliseconds" << std::endl;
+	std::cout << GetMeans() << " means calculated in " << GetMeanTime() << " milliseconds" << std::endl;
 #endif // PRETTY_PRINT
 #endif // PRINT_NUM_MEANS
 #ifdef PRINT_NUM_MEDIANS
@@ -1718,7 +2054,7 @@ void JPEGImage::ActualClean(int& width, int& height) {
 	divVal = (float)GetMedianTime() / 1000.0f;
 	std::cout << "Calculating medians at a rate of " << (float)GetMedians() / divVal << " medians per second" << std::endl;
 #else // PRETTY_PRINT
-	std::cout << medians << " medians calculated in " << medianTime << " milliseconds" << std::endl;
+	std::cout << GetMedians() << " medians calculated in " << GetMedianTime() << " milliseconds" << std::endl;
 #endif // PRETTY_PRINT
 #endif // PRINT_NUM_MEDIANS
 #ifdef PRINT_NUM_MODES
@@ -1726,7 +2062,7 @@ void JPEGImage::ActualClean(int& width, int& height) {
 	divVal = (float)GetModeTime() / 1000.0f;
 	std::cout << "Calculating modes at a rate of " << (float)GetModes() / divVal << " modes per second" << std::endl;
 #else // PRETTY_PRINT
-	std::cout << modes << " modes calculated in " << modeTime << " milliseconds" << std::endl;
+	std::cout << GetModes() << " modes calculated in " << GetModeTime() << " milliseconds" << std::endl;
 #endif // PRETTY_PRINT
 #endif // PRINT_NUM_MODES
 }
@@ -1751,13 +2087,12 @@ Video::Video(std::string newPath, std::string new_ffmpegPath, std::string fileNa
 	modeOutput = modePath;
 #endif // NO_MODE
 	filename = fileName;
-
 }
 
 Video::Video(std::string newPath, std::string new_ffmpegPath, std::string fileName, std::string newMeanOutput, std::string newMedianOutput, std::string newModeOutput) {
 	path = newPath;
 	ffmpegPath = new_ffmpegPath;
-#ifdef NO_MEAN
+#ifndef NO_MEAN
 	meanOutput = newMeanOutput;
 #endif // NO_MEAN
 #ifndef NO_MEDIAN
@@ -1791,24 +2126,111 @@ void Video::ActualClean(int& width, int& height) {
 #else // NO_MODE
 	const char* mode = " ";
 #endif // NO_MODE
-	BitmapImage realImage(path, mean, median, mode, 0);
 
-	// Get the running path
-#ifdef GET_PATH_FROM_FILESYSTEM
-	std::string my_path = std::filesystem::current_path().string();
-#else // GET_PATH_FROM_FILESYSTEM
-	std::string my_path = GetEXEName().substr(0, GetEXEName().find_last_of('\\') + 1);
-#endif // GET_PATH_FROM_FILESYSTEM
+	avdevice_register_all();
 
-	// Run a compiled .bat script that splits the video into images. I couldn't figure out how to c++-ify this code, so it's a bit slower than it should be
-	std::string drive = ffmpegPath.substr(0, 2);
-	// This is an if statement since I was having problems with it not waiting for system() to return before moving to clean
-	if (system((my_path + "\\split.exe " + drive + " " + ffmpegPath + " " + path + " " + filename).c_str()) == 0) {
-		
+	int ret;
+
+	// Open input file context
+	AVFormatContext * inctx = nullptr;
+	ret = avformat_open_input(&inctx, (path + filename).c_str(), nullptr, nullptr);
+	if (ret < 0) {
+		// Fail to avforamt_open_input
+		quick_exit(1);
 	}
 
-	// Clean the sub image
-	realImage.Clean(width, height);
+	// Retrive input stream information
+	ret = avformat_find_stream_info(inctx, nullptr);
+	if (ret < 0) {
+		// Fail to avformat_find_stream_info
+		quick_exit(1);
+	}
+
+	// Find primary video stream
+	AVCodec* vcodec = nullptr;
+	ret = av_find_best_stream(inctx, AVMEDIA_TYPE_VIDEO, -1, -1, (const AVCodec**) & vcodec, 0);
+	if (ret < 0) {
+		// Fail to av_find_best_stream
+		quick_exit(1);
+	}
+	const int vstrm_idx = ret;
+	AVStream* vstrm = inctx->streams[vstrm_idx];
+
+	AVCodec* pCodec = (AVCodec*)avcodec_find_decoder(vstrm->codecpar->codec_id);
+	AVCodecContext* context = avcodec_alloc_context3(pCodec);
+	avcodec_parameters_to_context(context, vstrm->codecpar);
+	context->pkt_timebase = vstrm->time_base;
+
+	// Open video decoder context
+	ret = avcodec_open2(context, vcodec, nullptr);
+	if (ret < 0) {
+		// Fail to avcodec_open2
+		quick_exit(1);
+	}
+
+#ifdef OLD
+	// Print input video stream informataion
+	std::cout
+		<< "infile: " << (path + filename).c_str() << "\n"
+		<< "format: " << inctx->iformat->name << "\n"
+		<< "vcodec: " << vcodec->name << "\n"
+		<< "size:   " << vstrm->codecpar->width << 'x' << vstrm->codecpar->height << "\n"
+		<< "fps:    " << av_q2d(context->framerate) << " [fps]\n"
+		<< "length: " << av_rescale_q(vstrm->duration, vstrm->time_base, { 1,1000 }) / 1000. << " [sec]\n"
+		<< "pixfmt: " << av_get_pix_fmt_name(context->pix_fmt) << "\n"
+		<< "frame:  " << vstrm->nb_frames << "\n"
+		<< std::flush;
+#endif // OLD
+
+	// Set width/height for return
+	width = vstrm->codecpar->width;
+	height = vstrm->codecpar->height;
+	int frames = vstrm->nb_frames;
+
+	// Allocate memory for pictures array
+	COLORREF*** pictures = static_cast<COLORREF***>(calloc(vstrm->nb_frames, sizeof(COLORREF**)));
+
+	// Init the last few ffmpeg objects needed
+	AVFrame* frame = av_frame_alloc();
+	bool eof = false;
+	AVCodecParserContext* parser;
+	AVPacket* pkt = av_packet_alloc();
+
+	parser = av_parser_init(pCodec->id);
+	if (!parser) {
+		// Parser not found
+		quick_exit(1);
+	}
+
+	// Allocate an AVFrame structure
+	AVFrame* pFrameRGB = av_frame_alloc();
+
+	int numBytes = av_image_get_buffer_size(AV_PIX_FMT_RGB24, width + 1, height + 1, 16);
+	uint8_t* buffer = (uint8_t*)av_malloc(numBytes * sizeof(uint8_t));
+
+	// Decode video into pictures array
+	do {
+		if (av_read_frame(inctx, pkt) == AVERROR(EOF)) {
+			eof = true;
+		}
+		if (!decode(context, frame, pkt, pictures, width, height, frames, buffer, pFrameRGB)) {
+			break;
+		}
+	} while (!eof);
+
+	// Free ffmpeg objects
+	av_frame_free(&frame);
+	avformat_close_input(&inctx);
+	avcodec_free_context(&context);
+	av_free(buffer);
+	av_free(pFrameRGB);
+
+	//Process pictures
+	BitmapImage image(pictures, mean, median, mode, frames);
+
+	image.Clean(width, height);
+
+	// pictures gets freed in image.clean, so we don't have to free it here
 }
 
 #ifndef GET_PATH_FROM_FILESYSTEM
@@ -1827,7 +2249,6 @@ std::string Video::GetEXEName() {
 
 #else // defined(_WIN32)
 	static_assert(false, "unrecognized platform");
-
 #endif // defined(PLATFORM_POSIX) || defined(__linux__)
 }
 #endif // GET_PATH_FROM_FILESYSTEM
@@ -1840,4 +2261,66 @@ void Video::Clean(int& width, int& height) {
 void Video::Clean() {
 	int width = -1, height = -1;
 	ActualClean(width, height);
+}
+
+COLORREF getPixel(AVFrame* pFrame, short x, short y) {
+	int off = ((y - 1) * pFrame->linesize[0]) + (3 * (x - 1));
+	COLORREF px = RGB(pFrame->data[0][off], pFrame->data[0][off + 1], pFrame->data[0][off + 2]);
+
+	return px;
+}
+
+bool decode(AVCodecContext* dec_ctx, AVFrame* frame, AVPacket* pkt, COLORREF*** pictures, int width, int height, int frames, uint8_t* buffer, AVFrame* pFrameRGB) {
+	if (dec_ctx->frame_number >= frames) {
+		return false;
+	}
+
+	int ret;
+
+	ret = avcodec_send_packet(dec_ctx, pkt);
+	if (ret < 0) {
+		// Error sending a packet for decoding
+		quick_exit(1);
+	}
+
+	while (ret >= 0) {
+		ret = avcodec_receive_frame(dec_ctx, frame);
+		if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF) {
+			return true;
+		}
+		else if (ret < 0) {
+			// Error during decoding
+			quick_exit(1);
+		}
+
+		// Convert image into an RGB image instead of whatever it decided to load
+		SwsContext* scale_ctx;
+		scale_ctx = sws_getContext(dec_ctx->width, dec_ctx->height, dec_ctx->pix_fmt, dec_ctx->width, dec_ctx->height, AV_PIX_FMT_RGB24, SWS_BICUBIC, NULL, NULL, NULL);
+		av_image_fill_arrays(pFrameRGB->data, pFrameRGB->linesize, buffer, AV_PIX_FMT_RGB24, width, height, 1);
+		sws_scale(scale_ctx, frame->data, frame->linesize, 0, dec_ctx->height, pFrameRGB->data, pFrameRGB->linesize);
+		sws_freeContext(scale_ctx);
+
+#ifdef OLD
+		printf("saving frame %3d\n", dec_ctx->frame_number);
+		fflush(stdout);
+#endif // OLD
+
+		// Save current frame into pictures using the same nested array method as earier
+		// Funky +/- 1 as getPixel starts at 1,1, but the array has to start at 0,0
+		COLORREF** currentData = static_cast<COLORREF**>(calloc(height, sizeof(COLORREF*)));
+		for (int y = 1; y < height + 1; y++) {
+			COLORREF* currentMiniData = static_cast<COLORREF*>(calloc(width, sizeof(COLORREF)));
+			for (int x = 1; x < width + 1; x++) {
+				COLORREF currentPixel = getPixel(pFrameRGB, x, y);
+				currentMiniData[x - 1] = currentPixel;
+			}
+			// This is flipped as ffmpeg automatically loads the image upside-down
+			currentData[height - y] = currentMiniData;
+		}
+
+		// Minus one here as dec_ctx->frame_number starts at 1, not 0
+		pictures[dec_ctx->frame_number - 1] = currentData;
+	}
+
+	return true;
 }
