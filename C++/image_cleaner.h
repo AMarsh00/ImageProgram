@@ -18,9 +18,28 @@
 #include "stb_image.h"
 #include "quick_select.h"
 
-// If you compile this on a different computer, you will have to download ffmpeg...
-// Also currently I'm using the free version of batch compiler, so split.exe will not work on other computers. You will have to compile split.bat yourself
-// (batch compiler costs $89.95, so I'd rather not buy it)
+// Ffmpeg is a C library, so we have to specify that it's C, not C++
+extern "C" {
+#include <libavcodec/avcodec.h>
+#include <libavformat/avformat.h>
+#include <libavdevice/avdevice.h>
+#include <libavfilter/avfilter.h>
+#include <libavutil/avutil.h>
+#include <libavutil/imgutils.h>
+#include <libavutil/samplefmt.h>
+#include <libavutil/timestamp.h>
+#include <libswscale/swscale.h>
+}
+
+// Link with ffmpeg libraries. These have to be in the same folder as the .exe (currently under x64/Release)
+#pragma comment(lib, "D:\\ImageProgram\\ffmpeg-master-latest-win64-gpl-shared\\lib\\avcodec.lib")
+#pragma comment(lib, "D:\\ImageProgram\\ffmpeg-master-latest-win64-gpl-shared\\lib\\avformat.lib")
+#pragma comment(lib, "D:\\ImageProgram\\ffmpeg-master-latest-win64-gpl-shared\\lib\\avdevice.lib")
+#pragma comment(lib, "D:\\ImageProgram\\ffmpeg-master-latest-win64-gpl-shared\\lib\\avfilter.lib")
+#pragma comment(lib, "D:\\ImageProgram\\ffmpeg-master-latest-win64-gpl-shared\\lib\\avutil.lib")
+#pragma comment(lib, "D:\\ImageProgram\\ffmpeg-master-latest-win64-gpl-shared\\lib\\swscale.lib")
+
+// If you compile this on a different computer, you will have to download ffmpeg and set it up (not fun)
 
 #define BASIC_FAST_MEDIAN_RANGE 5 // Fast median will return average if max is within FAST_MEDIAN_RANGE of the min
 #define BASIC_FAST_MODE_RANGE 5 // Fast mode will return average if max is within FAST_MODE_RANGE of the min
@@ -34,13 +53,13 @@
 //#define NO_MODE
 
 // Comment back in #define PRINT_PIXELS_PER_SECOND, #define PRINT_NUM_MEANS, #define PRINT_NUM_MEDIANS, #define PRINT_NUM_MODES to print those things
-#define PRINT_PIXELS_PER_SECOND
-#define PRINT_NUM_MEANS
-#define PRINT_NUM_MEDIANS
-#define PRINT_NUM_MODES
+//#define PRINT_PIXELS_PER_SECOND
+//#define PRINT_NUM_MEANS
+//#define PRINT_NUM_MEDIANS
+//#define PRINT_NUM_MODES
 
 // Comment back in #define PRETTY_PRINT to pretty print outputs (only relevant if the above output macros are commented in, and will take a little overhead)
-#define PRETTY_PRINT
+//#define PRETTY_PRINT
 
 // Comment back in #define BASIC_FAST_MEDIAN_MODE to use a faster, but slightly less accurate, median and mode function
 //#define BASIC_FAST_MEDIAN_MODE
@@ -54,6 +73,28 @@
 // Filesystem is still used for some things even if this is commented out
 //#define GET_PATH_FROM_FILESYSTEM
 
+// Comment back in #define SHR_DIV to override C++ compiler and use shr when dividing unsigned ints by 2 instead of sar
+// Weirdly, using the asm shr to divide by 2 is faster in debug mode, but not in release mode, so be wary about enabling this (I think that the compiler automatically uses it in asm and the 'mov eax, ecx' call is just extra there
+// Also, performance effects of this matter mainly if you're using fast median/mode and matter more if the images have more similar points
+//#define SHR_DIV
+
+// Comment back in #define NO_PIXEL_STRUCT to write raw data to the file instead of using the Pixel struct
+//#define NO_PIXEL_STRUCT
+
+// Comment back in #define TRY_MULTITHREAD_LOAD to try to multithread array loading, which doesn't really work
+// It is now automatically doing this, so don't bother turning this on (I should delete it)
+//#define TRY_MULTITHREAD_LOAD
+
+// Comment back in #define PRINT_TIME_AFTER_FILESYSTEM to print time after the program finds valid files
+//#define PRINT_TIME_AFTER_FILESYSTEM
+
+// Comment back in #define PRINT_TIME_BEFORE_WRITING to print time after we process data, but before we write it back to the files
+//#define PRINT_TIME_BEFORE_WRITING
+
+// Comment back in #define WRITE_HEADER_SEPERATELY to write .bmp output file's headers seperately
+// You would think it would be faster with this enabled, but it's actually not...
+//#define WRITE_HEADER_SEPERATELY
+
 // Only include iostream if we're actually using it, as it takes a little bit of build time
 #ifdef PRINT_PIXELS_PER_SECOND
 #include <iostream>
@@ -66,6 +107,14 @@
 #else // PRINT_NUM_MEDIANS
 #ifdef PRINT_NUM_MODES
 #include <iostream>
+#else // PRINT_NUM_MODES
+#ifdef PRINT_TIME_AFTER_FILESYSTEM
+#include <iostream>
+#else // PRINT_TIME_AFTER_FILESYSTEM
+#ifdef PRINT_TIME_BEFORE_WRITING
+#include <iostream>
+#endif // PRINT_TIME_BEFORE_WRITING
+#endif // PRINT_TIME_AFTER_FILESYSTEM
 #endif // PRINT_NUM_MODES
 #endif // PRINT_NUM_MEDIANS
 #endif // PRINT_NUM_MEANS
@@ -74,6 +123,7 @@
 // Image class, don't initialize things as Images, but it's useful (and saves some code) to initialize Image children as Image* blah = new BitmapImage;, for example
 class Image {
 public:
+#ifndef NO_PIXEL_STRUCT
     // Pixel struct that can write to .bmp files and saves pixel data
     struct Pixel {
         uint8_t blue;
@@ -82,6 +132,7 @@ public:
 
         void save_on_file(std::ofstream&);
     };
+#endif // NO_PIXEL_STRUCT
 
     // BMP Header information, don't worry about this
     struct BmpHeader {
@@ -115,6 +166,7 @@ public:
     Image(std::string);
     Image(std::string, const char*, const char*, const char*);
     Image(std::string, const char*, const char*, const char*, int);
+    Image(COLORREF***, const char*, const char*, const char*, int);
     // I like overriding the default destructor, even though I'm not actually destructing anything
     ~Image();
 
@@ -153,6 +205,9 @@ private:
     virtual COLORREF** ReadImage(WCHAR*, int&, int&);
 
 public:
+    COLORREF*** optional_picture;
+    int optional_num_pics;
+
     // I'm not bothering to define the toggled off mean/median/mode versions
 #ifndef NO_MEAN
     COLORREF mean(COLORREF***, int, int, int);
@@ -265,6 +320,37 @@ public:
 
 // Video is a bit different than the other image classes
 class Video {
+private:
+    // BMP Header information, don't worry about this
+    struct BmpHeader {
+        char bitmapSignatureBytes[2] = { 'B', 'M' };
+        uint32_t sizeOfBitmapFile;
+        uint32_t reservedBytes = 0;
+        uint32_t pixelDataOffset = 54;
+
+        void save_on_file(std::ofstream&);
+    };
+
+    // Other things that we have to write to the bmp header, don't worry about this
+    struct BmpInfoHeader {
+        uint32_t sizeOfThisHeader = 40;
+        int32_t width; // in pixels
+        int32_t height; // in pixels
+        uint16_t numberOfColorPlanes = 1;
+        uint16_t colorDepth = 24;
+        uint32_t compressionMethod = 0;
+        uint32_t rawBitmapDataSize = 0;
+        int32_t horizontalResolution = 3780; // in pixel per meter
+        int32_t verticalResolution = 3780; // in pixel per meter
+        uint32_t colorTableEntries = 0;
+        uint32_t importantColors = 0;
+
+        void save_on_file(std::ofstream&);
+    };
+
+    BmpHeader bmpHeader;
+    BmpInfoHeader bmpInfoHeader;
+
 public:
     Video(std::string, std::string, std::string);
     Video(std::string, std::string, std::string, std::string, std::string, std::string);
@@ -292,3 +378,14 @@ public:
     void Clean(int&, int&);
     void Clean();
 };
+
+#ifdef SHR_DIV
+// extern "C" as quick_div is a C-style asm function. Function definition is in quick_div.asm
+// This needs to be inlined to do anything
+extern "C" __forceinline int quick_div(int thingToDivide);
+#endif // SHR_DIV
+
+// If you're debugging, change Project > Properties > C/C++ > Code Generation > Basic Runtime Checks to /RTC1 and Project > Properties > C/C++ > Optimization > Optimization to \Od
+
+COLORREF getPixel(AVFrame*, short, short);
+bool decode(AVCodecContext*, AVFrame*, AVPacket*, COLORREF***, int, int, int, uint8_t*, AVFrame*);
