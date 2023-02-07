@@ -4,6 +4,7 @@
 #include <iostream>
 
 int main() {
+	// Before cleaning, you want to check that output files don't already exist (in testing, it was up to 0.1s slower if they already existed)
 	std::cout << clock() << std::endl;
 
 	BitmapImage image("D:\\ImageProgram\\BITMAP\\");
@@ -29,7 +30,7 @@ int main() {
 
 	std::cout << clock() << std::endl;
 
-	Video video("D:\\ImageProgram\\Video\\", "C:\\Users\\ajkmc\\Downloads\\ffmpeg-5.1.2-essentials_build\\ffmpeg-5.1.2-essentials_build\\bin", "sample-5s.mp4");
+	Video video("D:\\ImageProgram\\Video\\", "C:\\Users\\ajkmc\\Downloads\\ffmpeg-5.1.2-essentials_build\\ffmpeg-5.1.2-essentials_build\\bin", "WORKS.mp4");
 	// Video video("D:\\ImageProgram\\Video", "C:\\Users\\ajkmc\\Downloads\\ffmpeg-5.1.2-essentials_build\\ffmpeg-5.1.2-essentials_build\\bin", "sample-5s.mp4", "customMean.bmp", "customMedian.bmp", "customMode.bmp");
 	// You can also set custom output files. These also have to be .bmp
 
